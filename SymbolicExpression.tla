@@ -141,7 +141,7 @@ LOCAL BagDomainUnion(a, b) ==
                 ~(\E v \in 1..(x-1) : Equal(superSequence[x], superSequence[v]))
         }
     IN
-        { superSequence[i] : i \in domainInts}
+        {superSequence[i] : i \in domainInts}
 
 (* 
     Note that the use of this SHOULD enforce that a bag never has two items

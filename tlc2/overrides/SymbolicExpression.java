@@ -3,6 +3,7 @@ package tlc2.overrides;
 import java.util.Map;
 
 import tlc2.tool.FingerprintException;
+import tlc2.util.FP64;
 import tlc2.value.Values;
 import tlc2.value.impl.BoolValue;
 import tlc2.value.impl.Value;
@@ -11,21 +12,52 @@ import tlc2.value.impl.ValueExcept;
 import util.Assert;
 
 public abstract class SymbolicExpression extends Value {
-
     /* --------------------- Operators --------------------- */
-    // @TLAPlusOperator(identifier = "Expr", module = "SymbolicExpression", warn = false)
-    // public static Value expr(final Value atom) {
+    // Empty
+    @TLAPlusOperator(identifier = "EMPTY", module = "SymbolicExpression", warn = false)
+    public static Value expr() {
+        return new SymbolicEmpty();
+    }
 
-    // }
+    // Construct atomic expression
+    @TLAPlusOperator(identifier = "Expr", module = "SymbolicExpression", warn = false)
+    public static Value expr(final Value atom) {
+        return null; // TODO: Implement correctly
+    }
 
+    // e1 == e2
     @TLAPlusOperator(identifier = "Equal", module = "SymbolicExpression", warn = false)
     public static Value equal(final Value e1, final Value e2) {
         return BoolValue.ValFalse; // TODO: Implement correctly
     }
 
+    // e1 <= e2
+    @TLAPlusOperator(identifier = "LE", module = "SymbolicExpression", warn = false)
+    public static Value lessThanEqual(final Value e1, final Value e2) {
+        return BoolValue.ValFalse; // TODO: Implement correctly
+    }
 
+    // e1 + e2
+    @TLAPlusOperator(identifier = "Add", module = "SymbolicExpression", warn = false)
+    public static Value add(final Value e1, final Value e2) {
+        return null; // TODO: Implement correctly
+    }
+
+    // e1 x n
+    @TLAPlusOperator(identifier = "Mult", module = "SymbolicExpression", warn = false)
+    public static Value mult(final Value e1, final Value e2) {
+        return null; // TODO: Implement correctly
+    }
+
+    // max(e1, e2)
+    @TLAPlusOperator(identifier = "Max", module = "SymbolicExpression", warn = false)
+    public static Value max(final Value e1, final Value e2) {
+        return null; // TODO: Implement correctly
+    }
 
     /* --------------------- Value --------------------- */
+    // TODO: Override regular toStrings
+
     protected abstract Map<SymbolicExpression, Integer> getValue();
     protected boolean isEmptyExpr() {return false;}
     protected boolean isAtomExpr() {return false;}
@@ -34,8 +66,31 @@ public abstract class SymbolicExpression extends Value {
 
     @Override
     public int compareTo(Object other) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'compareTo'");
+        try {
+            if (other instanceof SymbolicExpression) {
+                final SymbolicExpression symOther = (SymbolicExpression) other;
+                if (this.equals(other)) {
+                    return 0;
+                }
+                if (((BoolValue)SymbolicExpression.lessThanEqual(this, symOther)).val) {
+                    // this is less
+                    return -1;
+                } else if (((BoolValue)SymbolicExpression.lessThanEqual(symOther, this)).val) {
+                    // other is less
+                    return 1;
+                } else {
+                    // unknown
+                    return Long.compare(this.fingerPrint(FP64.Zero), symOther.fingerPrint(FP64.Zero));
+                }
+            } else {
+                Assert.fail("Attempted to compare the symbolic expression " + Values.ppr(this.toString()) +
+                " with non-symbolic expression " + other.toString(), getSource());
+                return 0;
+            }
+        } catch (final RuntimeException | OutOfMemoryError e) {
+            if (hasSource()) { throw FingerprintException.getNewHead(this, e);}
+            else {throw e;}
+        }
     }
 
     @Override
@@ -121,5 +176,4 @@ public abstract class SymbolicExpression extends Value {
             else {throw e;}
         }
     }
-
 }
