@@ -26,3 +26,4 @@ replay_pid*
 # TLC output files
 *.out
 states/*
+.vscode/*

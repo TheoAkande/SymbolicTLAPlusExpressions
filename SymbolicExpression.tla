@@ -1,4 +1,10 @@
 ------------------------ MODULE SymbolicExpression ------------------------
+(* 
+    This module does not exactly work because of the way that TLC evaluates 
+    sets and assigns types. Two possible workarounds:
+    1. Define custom java class for this module to sidestep TLC
+    2. Use expression id map which is not really convenient
+*)
 EXTENDS Naturals, Bags, Sequences
 
 CONSTANTS Atoms, LTRelation (* {atom} X {atom} *)
