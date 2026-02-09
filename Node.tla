@@ -1,13 +1,12 @@
 ------------------------ MODULE Node ------------------------
-EXTENDS Sequences, Naturals
+EXTENDS Sequences, Naturals, SymbolicExpression
 
-CONSTANTS Atoms, LTRelation
+CONSTANTS LTRelation
 
-T == INSTANCE SymbolicExpression WITH Atoms <- Atoms, LTRelation <- LTRelation
 
-D == T!Expr("MessageDelay")
-RECEIVE_TIMEOUT == T!Expr("ReceiveTimeout")
-QUEUEING == T!Expr("QueueingDelay")
+D == Expr("MessageDelay")
+RECEIVE_TIMEOUT == Expr("ReceiveTimeout")
+QUEUEING == Expr("QueueingDelay")
 
 (* 
     Some action 'A(n, Sigma)' transitions node 'n' to state 'sigmaPrime'
@@ -16,8 +15,8 @@ QUEUEING == T!Expr("QueueingDelay")
 NoReceive(Sigma, M, TauN, TauM, n, sigmaPrime, mOut, a) ==
     LET 
         mPrime == M \cup mOut
-        newTauN == T!Add(TauN[n], a)
-        newMessageTime == T!Add(newTauN, D)
+        newTauN == Add(TauN[n], a)
+        newMessageTime == Add(newTauN, D)
     IN
         [
             sigma |-> [Sigma EXCEPT ![n] = sigmaPrime],
@@ -36,8 +35,8 @@ NoReceive(Sigma, M, TauN, TauM, n, sigmaPrime, mOut, a) ==
 ReceiveTimeout(Sigma, M, TauN, TauM, n, sigmaPrime, mOut, a) ==
     LET
         mPrime == M \cup mOut
-        newTauN == T!Add(TauN[n], T!Add(RECEIVE_TIMEOUT, a))
-        newMessageTime == T!Add(newTauN, D)
+        newTauN == Add(TauN[n], Add(RECEIVE_TIMEOUT, a))
+        newMessageTime == Add(newTauN, D)
     IN
         [
             sigma |-> [Sigma EXCEPT ![n] = sigmaPrime],
@@ -58,8 +57,8 @@ ReceiveTimeout(Sigma, M, TauN, TauM, n, sigmaPrime, mOut, a) ==
 ReceiveQueue(Sigma, M, TauN, TauM, n, m, sigmaPrime, mOut, a) ==
     LET
         mPrime == M \cup mOut
-        newTauN == T!Add(T!Max(TauN[n], TauM[m]), a)
-        newMessageTime == T!Add(newTauN, D)
+        newTauN == Add(Max(TauN[n], TauM[m], LTRelation), a)
+        newMessageTime == Add(newTauN, D)
     IN
         [
             sigma |-> [Sigma EXCEPT ![n] = sigmaPrime],
