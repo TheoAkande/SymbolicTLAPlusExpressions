@@ -8,7 +8,7 @@
 EXTENDS Naturals, Bags, Sequences, FiniteSets
 
 RECURSIVE AtomLEHelp(_, _, _, _)
-AtomLEHelp(a, b, atoms, LTRelation) ==
+LOCAL AtomLEHelp(a, b, atoms, LTRelation) ==
     \/ a = b
     \/ <<a, b>> \in LTRelation
     \/ 
@@ -16,7 +16,7 @@ AtomLEHelp(a, b, atoms, LTRelation) ==
             /\ <<a, c>> \in LTRelation 
             /\ AtomLEHelp(c, b, atoms \ {a, b, c}, LTRelation)
 
-AtomLE(a, b, LTRelation) ==
+LOCAL AtomLE(a, b, LTRelation) ==
     LET
         atoms == DOMAIN(LTRelation) \cup {LTRelation[x] : x \in DOMAIN LTRelation}
     IN 
@@ -78,7 +78,7 @@ LE(a, b, LT) ==
     Note that we can't use typical bag subseteq because we need to use the LE
     relation
 *)
-Subset(a, b, LT) ==
+LOCAL Subset(a, b, LT) ==
     IF a = EmptyBag THEN TRUE
     ELSE 
         LET 
