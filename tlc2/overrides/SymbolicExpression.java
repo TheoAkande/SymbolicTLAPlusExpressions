@@ -1,6 +1,7 @@
 package tlc2.overrides;
 
 import java.util.BitSet;
+import java.util.EmptyStackException;
 import java.util.Map;
 import java.util.Set;
 
@@ -8,6 +9,7 @@ import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
 import tlc2.value.Values;
 import tlc2.value.impl.BoolValue;
+import tlc2.value.impl.IntValue;
 import tlc2.value.impl.Value;
 import tlc2.value.impl.ValueExcept;
 
@@ -85,13 +87,78 @@ public abstract class SymbolicExpression extends Value {
     // e1 + e2
     @TLAPlusOperator(identifier = "Add", module = "SymbolicExpression", warn = false)
     public static Value add(final Value e1, final Value e2) {
-        return null; // TODO: Implement correctly
+        if (!(e1 instanceof SymbolicExpression && e2 instanceof SymbolicExpression)) {
+            Assert.fail("Attempted to sum with non-symbolic expression");
+            return new SymbolicEmpty();
+        }
+
+        final SymbolicExpression s1 = (SymbolicExpression) (e1.deepCopy());
+        final SymbolicExpression s2 = (SymbolicExpression) (e2.deepCopy());
+
+        if (s1.isEmpty()) {
+            return s2;
+        }
+
+        if (s2.isEmpty()) {
+            return s1;
+        }
+
+        if (s1.isSumExpr() && s2.isSumExpr()) {
+            final SymbolicSum sum1 = (SymbolicSum) s1;
+            final SymbolicSum sum2 = (SymbolicSum) s2;
+            for (final Map.Entry<SymbolicExpression, Integer> entry : sum2.getBag().entrySet()) {
+                sum1.add(entry.getKey(), entry.getValue()); // Should be safe because we overrode equals/fingerprint
+            }
+            return sum1;
+        }
+
+        if (s1.isSumExpr()) {
+            ((SymbolicSum) s1).add(s2);
+            return s1;
+        }
+
+        if (s2.isSumExpr()) {
+            ((SymbolicSum) s2).add(s1);
+            return s2;
+        }
+
+        final SymbolicSum ret = new SymbolicSum();
+        ret.add(s1);
+        ret.add(s2);
+
+        return ret;
     }
 
     // e1 x n
     @TLAPlusOperator(identifier = "Mult", module = "SymbolicExpression", warn = false)
     public static Value mult(final Value e1, final Value e2) {
-        return null; // TODO: Implement correctly
+        if (!(e1 instanceof SymbolicExpression && e2 instanceof IntValue)) {
+            Assert.fail("Attempted to multiply with non-symbolic expression");
+            return new SymbolicEmpty();
+        }
+
+        final SymbolicExpression s = (SymbolicExpression) (e1.deepCopy());
+        final int factor = ((IntValue) e2).val;
+
+        if (s.isEmpty() || factor == 0) {
+            return new SymbolicEmpty();
+        }
+
+        if (factor == 1) {
+            return s;
+        }
+
+        if (s.isSumExpr()) {
+            final SymbolicSum sum = (SymbolicSum) s;
+            for (final Map.Entry<SymbolicExpression, Integer> entry : sum.getBag().entrySet()) {
+                sum.getBag().put(entry.getKey(), entry.getValue() * factor);
+            }
+            return sum;
+        }
+
+        final SymbolicSum ret = new SymbolicSum();
+        ret.add(s, factor);
+        return ret;
     }
 
     // max(e1, e2)
