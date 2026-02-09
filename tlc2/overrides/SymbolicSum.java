@@ -10,15 +10,26 @@ import tlc2.value.impl.BoolValue;
 
 public class SymbolicSum extends SymbolicExpression {
 
+    // INVARIANT: No two different keys are 'equal'
     private final Map<SymbolicExpression, Integer> bag = new HashMap<>();
-
+    private int cardinality = 0;
+    
     public SymbolicSum() {
         // Do nothing for now?
+    }
+
+    protected Map<SymbolicExpression, Integer> getBag() {
+        return this.bag;
+    }
+
+    protected int getCardinality() {
+        return this.cardinality;
     }
 
     public SymbolicExpression add(final SymbolicExpression e) {
         try {
             this.bag.put(e, this.bag.getOrDefault(e, 0) + 1);
+            this.cardinality++;
             return this;
         } catch (final RuntimeException | OutOfMemoryError err) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, err);}
@@ -29,6 +40,7 @@ public class SymbolicSum extends SymbolicExpression {
     public SymbolicExpression add(final SymbolicExpression e, final int num) {
         try {
             this.bag.put(e, this.bag.getOrDefault(e, 0) + num);
+            this.cardinality += num;
             return this;
         } catch (final RuntimeException | OutOfMemoryError err) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, err);}
@@ -98,14 +110,33 @@ public class SymbolicSum extends SymbolicExpression {
     public long fingerPrint(long fp) {
         try {
             fp = FP64.Extend(fp, "SUM");
-            for (final SymbolicExpression e : this.bag.keySet()) {
-                fp = FP64.Extend(fp, e.fingerPrint(FP64.Zero));
-                fp = FP64.Extend(fp, FP64.Hash(this.bag.get(e)));
+
+            /* Don't use FP64.exend for elements because it is not commutative */
+            long h1 = 0L;
+            long h2 = 0L;
+
+            for (Map.Entry<SymbolicExpression, Integer> e : this.bag.entrySet()) {
+                long k = e.getKey().fingerPrint(FP64.Zero);
+                long v = (long) e.getValue();
+
+                long x = mix64(k * 0x9E3779B97F4A7C15L ^ v * 0xC2B2AE3D27D4EB4FL);
+
+                h1 += x;
+                h2 ^= x;
             }
-            return fp;
+
+            fp = FP64.Extend(fp, mix64(h1 ^ h2));
+            return FP64.Extend(fp, this.cardinality);
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
             else {throw e;}
         }
+    }
+
+    // Strong 64-bit mixer (SplitMix64 finalizer)
+    private static long mix64(long z) {
+        z = (z ^ (z >>> 33)) * 0xff51afd7ed558ccdL;
+        z = (z ^ (z >>> 33)) * 0xc4ceb9fe1a85ec53L;
+        return z ^ (z >>> 33);
     }
 }
