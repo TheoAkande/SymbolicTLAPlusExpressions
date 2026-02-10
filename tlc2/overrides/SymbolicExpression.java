@@ -2,20 +2,28 @@ package tlc2.overrides;
 
 import java.util.BitSet;
 import java.util.EmptyStackException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import tlc2.tool.EvalControl;
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
 import tlc2.value.Values;
 import tlc2.value.impl.BoolValue;
+import tlc2.value.impl.EnumerableValue;
+import tlc2.value.impl.FunctionValue;
 import tlc2.value.impl.IntValue;
+import tlc2.value.impl.TupleValue;
 import tlc2.value.impl.Value;
 import tlc2.value.impl.ValueExcept;
 
 import util.Assert;
 
 public abstract class SymbolicExpression extends Value {
+
     /* --------------------- Operators --------------------- */
     // Empty
     @TLAPlusOperator(identifier = "EMPTY", module = "SymbolicExpression", warn = false)
@@ -80,7 +88,7 @@ public abstract class SymbolicExpression extends Value {
 
     // e1 <= e2
     @TLAPlusOperator(identifier = "LE", module = "SymbolicExpression", warn = false)
-    public static Value lessThanEqual(final Value e1, final Value e2) {
+    public static Value lessThanEqual(final Value e1, final Value e2, final Value ltRelation) {
         return BoolValue.ValFalse; // TODO: Implement correctly
     }
 
@@ -163,8 +171,75 @@ public abstract class SymbolicExpression extends Value {
 
     // max(e1, e2)
     @TLAPlusOperator(identifier = "Max", module = "SymbolicExpression", warn = false)
-    public static Value max(final Value e1, final Value e2) {
+    public static Value max(final Value e1, final Value e2, final Value ltRelation) {
         return null; // TODO: Implement correctly
+    }
+
+    private static AtomicBoolean ltStarted;
+    private static AtomicBoolean ltReady;
+    private static HashMap<Value, Set<Value>> ltRelation = new HashMap<>();
+
+    private static int atomicCompare(final Value a1, final Value a2, final Value lessThanRelation) {
+        if (!(a1 instanceof SymbolicAtom && a2 instanceof SymbolicAtom && lessThanRelation instanceof FunctionValue)) {
+            Assert.fail("Attempted to compare atoms that are not atoms or not function");
+            return 2;
+        }
+        
+        if (a1.equals(a2)) {
+            return 0;
+        }
+        while (SymbolicExpression.ltStarted.get()) {
+            if (SymbolicExpression.ltReady.get()) {
+                if (SymbolicExpression.ltRelation.get(a1).contains(a2)) {
+                    return -1;
+                }
+                if (SymbolicExpression.ltRelation.get(a2).contains(a1)) {
+                    return 1;
+                }
+                return -2;
+            }
+            Thread.onSpinWait();
+        }
+
+        if (!SymbolicExpression.ltStarted.compareAndSet(false, true)) {
+            return SymbolicExpression.atomicCompare(a1, a2, lessThanRelation);
+        }
+
+        if (!(lessThanRelation instanceof EnumerableValue)) {
+            Assert.fail("LTRelation is not an enumerable val?");
+            return 2;
+        }
+        final EnumerableValue ltRelation = (EnumerableValue) lessThanRelation;
+        final Set<Value> domain = new HashSet<>(ltRelation.elements().all());
+        final Set<Value> atoms = new HashSet<>();
+        for (final Value e : domain) {
+            if (!(e instanceof TupleValue)) {
+                Assert.fail("Domain items are not tuples");
+                return 2;
+            }
+            final Value less = ((TupleValue)e).apply(IntValue.gen(1), EvalControl.KeepLazy);
+            final Value more = ((TupleValue)e).apply(IntValue.gen(2), EvalControl.KeepLazy);
+            atoms.add(less);
+            atoms.add(more);
+            final Set<Value> ltForA = SymbolicExpression.ltRelation.computeIfAbsent(less, x -> new HashSet<>());
+            ltForA.add(more);
+        }
+
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (final Value a : atoms) {
+                final Set<Value> ltForA = SymbolicExpression.ltRelation.computeIfAbsent(a, x -> new HashSet<>());
+                final int sizeBefore = ltForA.size();
+                for (final Value aPrime : ltForA) {
+                    ltForA.addAll(SymbolicExpression.ltRelation.get(aPrime));
+                }
+                changed |= sizeBefore != ltForA.size();
+            }
+        }
+
+        SymbolicExpression.ltReady.set(true);
+        return SymbolicExpression.atomicCompare(a1, a2, lessThanRelation);
     }
 
     /* --------------------- Value --------------------- */
