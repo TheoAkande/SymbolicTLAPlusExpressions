@@ -89,7 +89,15 @@ public abstract class SymbolicExpression extends Value {
     // e1 <= e2
     @TLAPlusOperator(identifier = "LE", module = "SymbolicExpression", warn = false)
     public static Value lessThanEqual(final Value e1, final Value e2, final Value ltRelation) {
-        return BoolValue.ValFalse; // TODO: Implement correctly
+        if (!(e1 instanceof SymbolicExpression && e2 instanceof SymbolicExpression)) {
+            Assert.fail("Attempted to compare LE with non-symbolic expression");
+            return BoolValue.ValFalse;
+        }
+
+        final SymbolicExpression exp1 = (SymbolicExpression) e1;
+        final SymbolicExpression exp2 = (SymbolicExpression) e2;
+
+        return SymbolicExpression.le(exp1, exp2, ltRelation) ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
     // e1 + e2
@@ -179,6 +187,67 @@ public abstract class SymbolicExpression extends Value {
     private static AtomicBoolean ltReady;
     private static HashMap<Value, Set<Value>> ltRelation = new HashMap<>();
 
+    private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2, final Value ltRelation) {
+        if (e1.isEmpty()) {
+            return true;
+        }
+
+        if (e1.isAtom() & e2.isAtom()) {
+            return SymbolicExpression.atomicCompare(e1, e2, ltRelation) < 1;
+        }
+
+        if (e1.isMaxExpr() & e2.isMaxExpr()) {
+            final SymbolicMax m1 = (SymbolicMax) e1;
+            final SymbolicMax m2 = (SymbolicMax) e2;
+            return (le(m1.first(), m2.first(), ltRelation) && le(m1.second(), m2.second(), ltRelation)) ||
+                (le(m1.first(), m2.second(), ltRelation) && le(m1.second(), m2.second(), ltRelation)) ||
+                (le(m1.first(), m2.first(), ltRelation) && le(m1.second(), m2.first(), ltRelation)) ||
+                (le(m1.first(), m2.second(), ltRelation) && le(m1.second(), m2.first(), ltRelation));
+        }
+
+        if (e2.isMaxExpr()) {
+            final SymbolicMax m2 = (SymbolicMax) e2;
+            return le(e1, m2.first(), ltRelation) || le(e1, m2.second(), ltRelation);
+        }
+
+        if (e1.isMaxExpr()) {
+            final SymbolicMax m1 = (SymbolicMax) e1;
+            return le(m1.first(), e2, ltRelation) || le(m1.second(), e2, ltRelation);
+        }
+
+        if (e1.isSumExpr() & e2.isSumExpr()) {
+            return SymbolicExpression.subset((SymbolicSum)e1, (SymbolicSum)e2, ltRelation);
+        }
+
+
+    }
+
+    private static boolean subset(final SymbolicSum s1, final SymbolicSum s2, final Value ltRelation) {
+
+    }
+
+    private static int atomicCompareRelationSet(final Value a1, final Value a2) {
+        if (!SymbolicExpression.ltReady.get()) {
+            Assert.fail("Attempted atomic compare when relation not ready");
+            return 2;
+        }
+
+        if (!(a1 instanceof SymbolicAtom && a2 instanceof SymbolicAtom)) {
+            Assert.fail("Attempted to compare atoms that are not atoms or not function");
+            return 2;
+        }
+        if (a1.equals(a2)) {
+            return 0;
+        }
+        if (SymbolicExpression.ltRelation.get(a1).contains(a2)) {
+            return -1;
+        }
+        if (SymbolicExpression.ltRelation.get(a2).contains(a1)) {
+            return 1;
+        }
+        return 2;
+    }
+
     private static int atomicCompare(final Value a1, final Value a2, final Value lessThanRelation) {
         if (!(a1 instanceof SymbolicAtom && a2 instanceof SymbolicAtom && lessThanRelation instanceof FunctionValue)) {
             Assert.fail("Attempted to compare atoms that are not atoms or not function");
@@ -190,13 +259,7 @@ public abstract class SymbolicExpression extends Value {
         }
         while (SymbolicExpression.ltStarted.get()) {
             if (SymbolicExpression.ltReady.get()) {
-                if (SymbolicExpression.ltRelation.get(a1).contains(a2)) {
-                    return -1;
-                }
-                if (SymbolicExpression.ltRelation.get(a2).contains(a1)) {
-                    return 1;
-                }
-                return -2;
+                return SymbolicExpression.atomicCompareRelationSet(a1, a2);
             }
             Thread.onSpinWait();
         }

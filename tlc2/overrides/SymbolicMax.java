@@ -97,4 +97,12 @@ public class SymbolicMax extends SymbolicExpression {
             else {throw e;}
         }
     }
+
+    public SymbolicExpression first() {
+        return v1;
+    }
+
+    public SymbolicExpression second() {
+        return v2;
+    }
 }
