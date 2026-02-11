@@ -53,12 +53,9 @@ LE(a, b, LT) ==
         [] a.type = "atom" /\ b.type = "atom" -> 
             a.val = b.val \/ AtomLE(a.val, b.val, LT)
         [] a.type = "max" /\ b.type = "max" -> 
-            \/
-                /\ LE(a.val[1], b.val[1], LT) 
-                /\ LE(a.val[2], b.val[2], LT)
-            \/
-                /\ LE(a.val[1], b.val[2], LT) 
-                /\ LE(a.val[2], b.val[1], LT)
+            \E i \in 1..2 : \E j \in 1..2 :
+                /\ LE(a.val[1], b.val[i], LT)
+                /\ LE(a.val[2], b.val[j], LT)
         [] a.type # "max" /\ b.type = "max" ->
             \/ LE(a, b.val[1], LT)
             \/ LE(a, b.val[2], LT)
