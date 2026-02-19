@@ -109,11 +109,11 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s1 = (SymbolicExpression) (e1.deepCopy());
         final SymbolicExpression s2 = (SymbolicExpression) (e2.deepCopy());
 
-        if (s1.isEmpty()) {
+        if (s1.isEmptyExpr()) {
             return s2;
         }
 
-        if (s2.isEmpty()) {
+        if (s2.isEmptyExpr()) {
             return s1;
         }
 
@@ -154,7 +154,7 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s = (SymbolicExpression) (e1.deepCopy());
         final int factor = ((IntValue) e2).val;
 
-        if (s.isEmpty() || factor == 0) {
+        if (s.isEmptyExpr() || factor == 0) {
             return new SymbolicEmpty();
         }
 
@@ -186,7 +186,7 @@ public abstract class SymbolicExpression extends Value {
     private static HashMap<Value, Set<Value>> ltRelation = new HashMap<>();
 
     private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2, final Value ltRelation) {
-        if (e1.isEmpty()) {
+        if (e1.isEmptyExpr()) {
             return true;
         }
 
