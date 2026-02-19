@@ -112,22 +112,22 @@ public abstract class SymbolicExpression extends Value {
             return new SymbolicEmpty();
         }
 
-        final SymbolicExpression s1 = (SymbolicExpression) (e1.deepCopy());
-        final SymbolicExpression s2 = (SymbolicExpression) (e2.deepCopy());
+        final SymbolicExpression s1 = (SymbolicExpression) e1;
+        final SymbolicExpression s2 = (SymbolicExpression) e2;
 
         if (s1.isEmptyExpr()) {
-            return s2;
+            return (Value) s2.deepCopy();
         }
 
         if (s2.isEmptyExpr()) {
-            return s1;
+            return (Value) s1.deepCopy();
         }
 
         if (s1.isSumExpr() && s2.isSumExpr()) {
             SymbolicSum sum1 = (SymbolicSum) s1;
             final SymbolicSum sum2 = (SymbolicSum) s2;
             for (final Map.Entry<SymbolicExpression, Integer> entry : sum2.getBag().entrySet()) {
-                sum1 = sum1.addTo(entry.getKey(), entry.getValue());
+                sum1 = sum1.addTo(entry.getKey(), entry.getValue()); // TODO: Is this better for LE than constructing it all at once?
             }
             return sum1;
         }
@@ -154,7 +154,7 @@ public abstract class SymbolicExpression extends Value {
             return new SymbolicEmpty();
         }
 
-        final SymbolicExpression s = (SymbolicExpression) (e1.deepCopy());
+        final SymbolicExpression s = (SymbolicExpression) e1;
         final int factor = ((IntValue) e2).val;
 
         if (s.isEmptyExpr() || factor == 0) {
@@ -162,7 +162,7 @@ public abstract class SymbolicExpression extends Value {
         }
 
         if (factor == 1) {
-            return s;
+            return (Value) s.deepCopy();
         }
 
         if (s.isSumExpr()) {
