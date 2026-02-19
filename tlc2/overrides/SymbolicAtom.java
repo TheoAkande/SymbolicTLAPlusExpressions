@@ -34,7 +34,7 @@ public class SymbolicAtom extends SymbolicExpression {
         le.add(e);
         for (final SymbolicExpression o : SymbolicExpression.ltRelation.getOrDefault(e, SymbolicExpression.emptySet)) {
             le.addAll(SymbolicExpression.getAllLE(o));
-        } 
+        }
     }
 
     // Private constructor to avoid making too many

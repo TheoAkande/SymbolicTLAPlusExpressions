@@ -28,8 +28,8 @@ public class SymbolicMax extends SymbolicExpression {
                     + " or " + Values.ppr(v2.toString()),
                     getSource()
                 );
-                this.v1 = new SymbolicEmpty();
-                this.v2 = new SymbolicEmpty();
+                this.v1 = SymbolicEmpty.getInstance();
+                this.v2 = SymbolicEmpty.getInstance();
             }
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}

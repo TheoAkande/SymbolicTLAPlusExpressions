@@ -9,6 +9,13 @@ import tlc2.util.FP64;
 
 public class SymbolicEmpty extends SymbolicExpression {
 
+    private static final SymbolicEmpty instance = new SymbolicEmpty();
+    public static SymbolicEmpty getInstance() {
+        return instance;
+    }
+
+    private SymbolicEmpty() {}
+
     @Override
     protected boolean isEmptyExpr() {return true;}
 

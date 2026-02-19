@@ -26,7 +26,6 @@ import util.Assert;
     - get rid of ltRelation from parameter of SymbolicExpression spec
     - add in the setup lt relation operator to SymbolicExpression spec
     - form LE relation for
-        - empty
         - max
         - sum
 */ 
@@ -37,7 +36,7 @@ public abstract class SymbolicExpression extends Value {
     // Empty
     @TLAPlusOperator(identifier = "EMPTY", module = "SymbolicExpression", warn = false)
     public static Value expr() {
-        return new SymbolicEmpty();
+        return SymbolicEmpty.getInstance();
     }
 
     // Construct atomic expression
@@ -114,7 +113,7 @@ public abstract class SymbolicExpression extends Value {
     public static Value add(final Value e1, final Value e2) {
         if (!(e1 instanceof SymbolicExpression && e2 instanceof SymbolicExpression)) {
             Assert.fail("Attempted to sum with non-symbolic expression");
-            return new SymbolicEmpty();
+            return SymbolicEmpty.getInstance();
         }
 
         final SymbolicExpression s1 = (SymbolicExpression) e1;
@@ -156,14 +155,14 @@ public abstract class SymbolicExpression extends Value {
     public static Value mult(final Value e1, final Value e2) {
         if (!(e1 instanceof SymbolicExpression && e2 instanceof IntValue)) {
             Assert.fail("Attempted to multiply with non-symbolic expression");
-            return new SymbolicEmpty();
+            return SymbolicEmpty.getInstance();
         }
 
         final SymbolicExpression s = (SymbolicExpression) e1;
         final int factor = ((IntValue) e2).val;
 
         if (s.isEmptyExpr() || factor == 0) {
-            return new SymbolicEmpty();
+            return SymbolicEmpty.getInstance();
         }
 
         if (factor == 1) {
@@ -256,9 +255,9 @@ public abstract class SymbolicExpression extends Value {
     }
 
     private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2) {
-        // if (e1.isEmptyExpr()) {
-        //     return true;
-        // }
+        if (e1.isEmptyExpr()) {
+            return true;
+        }
 
         // if (e1.isAtom() & e2.isAtom()) {
         //     return SymbolicExpression.atomicCompare(e1, e2, ltRelation) < 1;
