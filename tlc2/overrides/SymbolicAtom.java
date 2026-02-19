@@ -76,16 +76,10 @@ public class SymbolicAtom extends SymbolicExpression {
         }
     }
 
-    // We override fingerPrint rather than hashCode for TLC values
     @Override
-    public long fingerPrint(long fp) {
-        try {
-            fp = FP64.Extend(fp, "SYMBOLICATOM");
-            fp = FP64.Extend(fp, this.val.length());
-            return FP64.Extend(fp, this.val.toString());
-        } catch (final RuntimeException | OutOfMemoryError e) {
-            if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
-            else {throw e;}
-        }
+    protected long getFullFingerprint(long fp) {
+        fp = FP64.Extend(fp, "SYMBOLICATOM");
+        fp = FP64.Extend(fp, this.val.length());
+        return FP64.Extend(fp, this.val.toString());
     }
 }

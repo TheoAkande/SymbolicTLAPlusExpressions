@@ -354,6 +354,8 @@ public abstract class SymbolicExpression extends Value {
     protected boolean isAtomExpr() {return false;}
     protected boolean isMaxExpr() {return false;}
     protected boolean isSumExpr() {return false;}
+    private long zeroFingerprintCache;
+    private boolean zeroFingerprintSet = false;
 
     @Override
     public int compareTo(Object other) {
@@ -371,7 +373,7 @@ public abstract class SymbolicExpression extends Value {
                 //     return 1;
                 } else {
                     // unknown
-                    return Long.compare(this.fingerPrint(FP64.Zero), symOther.fingerPrint(FP64.Zero));
+                    return Long.compare(this.getZeroFingerprint(), symOther.getZeroFingerprint());
                 }
             } else {
                 Assert.fail("Attempted to compare the symbolic expression " + Values.ppr(this.toString()) +
@@ -467,4 +469,30 @@ public abstract class SymbolicExpression extends Value {
             else {throw e;}
         }
     }
+
+    @Override
+    public long fingerPrint(long fp) {
+        try {
+            if (fp == FP64.Zero) {
+                return this.getZeroFingerprint();
+            }
+            return this.getFullFingerprint(fp);
+        } catch (final RuntimeException | OutOfMemoryError e) {
+            if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
+            else {throw e;}
+        }
+    }
+
+    // TODO: does this need to be synchronized?
+    // We override fingerPrint rather than hashCode for TLC values
+    protected long getZeroFingerprint() {
+        if (!this.zeroFingerprintSet) {
+            this.zeroFingerprintCache = this.fingerPrint(FP64.Zero);
+            this.zeroFingerprintSet = true;
+        }
+        return this.zeroFingerprintCache;
+    }
+
+
+    protected abstract long getFullFingerprint(long fp);
 }

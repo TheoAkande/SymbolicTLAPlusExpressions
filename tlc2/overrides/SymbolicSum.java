@@ -96,32 +96,26 @@ public class SymbolicSum extends SymbolicExpression {
         }
     }
 
-    // We override fingerPrint rather than hashCode for TLC values
     @Override
-    public long fingerPrint(long fp) {
-        try {
-            fp = FP64.Extend(fp, "SUM");
+    protected long getFullFingerprint(long fp) {
+        fp = FP64.Extend(fp, "SUM");
 
-            /* Don't use FP64.exend for elements because it is not commutative */
-            long h1 = 0L;
-            long h2 = 0L;
+        /* Don't use FP64.exend for elements because it is not commutative */
+        long h1 = 0L;
+        long h2 = 0L;
 
-            for (Map.Entry<SymbolicExpression, Integer> e : this.bag.entrySet()) {
-                long k = e.getKey().fingerPrint(FP64.Zero);
-                long v = (long) e.getValue();
+        for (Map.Entry<SymbolicExpression, Integer> e : this.bag.entrySet()) {
+            long k = e.getKey().fingerPrint(FP64.Zero);
+            long v = (long) e.getValue();
 
-                long x = mix64(k * 0x9E3779B97F4A7C15L ^ v * 0xC2B2AE3D27D4EB4FL);
+            long x = mix64(k * 0x9E3779B97F4A7C15L ^ v * 0xC2B2AE3D27D4EB4FL);
 
-                h1 += x;
-                h2 ^= x;
-            }
-
-            fp = FP64.Extend(fp, mix64(h1 ^ h2));
-            return FP64.Extend(fp, this.cardinality);
-        } catch (final RuntimeException | OutOfMemoryError e) {
-            if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
-            else {throw e;}
+            h1 += x;
+            h2 ^= x;
         }
+
+        fp = FP64.Extend(fp, mix64(h1 ^ h2));
+        return FP64.Extend(fp, this.cardinality);
     }
 
     // Strong 64-bit mixer (SplitMix64 finalizer)

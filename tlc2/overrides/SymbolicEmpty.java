@@ -45,14 +45,8 @@ public class SymbolicEmpty extends SymbolicExpression {
         }
     }
 
-    // We override fingerPrint rather than hashCode for TLC values
     @Override
-    public long fingerPrint(long fp) {
-        try {
-            return FP64.Extend(fp, "EMPTY");
-        } catch (final RuntimeException | OutOfMemoryError e) {
-            if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
-            else {throw e;}
-        }
+    protected long getFullFingerprint(long fp) {
+        return FP64.Extend(fp, "EMPTY");
     }
 }
