@@ -14,8 +14,9 @@ public class SymbolicSum extends SymbolicExpression {
     private final Map<SymbolicExpression, Integer> bag = new HashMap<>();
     private int cardinality = 0;
     
-    public SymbolicSum() {
-        // Do nothing for now?
+    public SymbolicSum(final Map<SymbolicExpression, Integer> bag) {
+        this.bag.putAll(bag);
+        this.cardinality = bag.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     protected Map<SymbolicExpression, Integer> getBag() {
@@ -26,22 +27,15 @@ public class SymbolicSum extends SymbolicExpression {
         return this.cardinality;
     }
 
-    public SymbolicExpression add(final SymbolicExpression e) {
-        try {
-            this.bag.put(e, this.bag.getOrDefault(e, 0) + 1);
-            this.cardinality++;
-            return this;
-        } catch (final RuntimeException | OutOfMemoryError err) {
-            if (hasSource()) {throw FingerprintException.getNewHead(this, err);}
-            else {throw err;}
-        }
+    public SymbolicSum addTo(final SymbolicExpression e) {
+        return addTo(e, 1);
     }
 
-    public SymbolicExpression add(final SymbolicExpression e, final int num) {
+    public SymbolicSum addTo(final SymbolicExpression e, final int num) {
         try {
-            this.bag.put(e, this.bag.getOrDefault(e, 0) + num);
-            this.cardinality += num;
-            return this;
+            final Map<SymbolicExpression, Integer> newBag = new HashMap<>(this.bag);
+            newBag.put(e, newBag.getOrDefault(e, 0) + num);
+            return new SymbolicSum(newBag);
         } catch (final RuntimeException | OutOfMemoryError err) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, err);}
             else {throw err;}
@@ -54,10 +48,7 @@ public class SymbolicSum extends SymbolicExpression {
     @Override
     public IValue deepCopy() {
         try {
-            final SymbolicSum ret = new SymbolicSum();
-            for (SymbolicExpression e : this.bag.keySet()) {
-                ret.add((SymbolicExpression) e.deepCopy(), this.bag.get(e));
-            }
+            final SymbolicSum ret = new SymbolicSum(this.bag);
             return ret;
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}

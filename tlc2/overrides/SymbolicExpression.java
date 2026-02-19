@@ -20,6 +20,12 @@ import tlc2.value.impl.ValueExcept;
 
 import util.Assert;
 
+/* 
+    TODO: 
+        - Zero fingerprint cache (since immutable)
+        - Stop with all the deep copies (everything should be immutable so should have no need for that)
+*/ 
+
 public abstract class SymbolicExpression extends Value {
 
     /* --------------------- Operators --------------------- */
@@ -118,29 +124,26 @@ public abstract class SymbolicExpression extends Value {
         }
 
         if (s1.isSumExpr() && s2.isSumExpr()) {
-            final SymbolicSum sum1 = (SymbolicSum) s1;
+            SymbolicSum sum1 = (SymbolicSum) s1;
             final SymbolicSum sum2 = (SymbolicSum) s2;
             for (final Map.Entry<SymbolicExpression, Integer> entry : sum2.getBag().entrySet()) {
-                sum1.add(entry.getKey(), entry.getValue()); // Should be safe because we overrode equals/fingerprint
+                sum1 = sum1.addTo(entry.getKey(), entry.getValue());
             }
             return sum1;
         }
 
         if (s1.isSumExpr()) {
-            ((SymbolicSum) s1).add(s2);
-            return s1;
+            return ((SymbolicSum) s1).addTo(s2);
         }
 
         if (s2.isSumExpr()) {
-            ((SymbolicSum) s2).add(s1);
-            return s2;
+            return ((SymbolicSum) s2).addTo(s1);
         }
 
-        final SymbolicSum ret = new SymbolicSum();
-        ret.add(s1);
-        ret.add(s2);
-
-        return ret;
+        final Map<SymbolicExpression, Integer> newBag = new HashMap<>();
+        newBag.put(s1, 1);
+        newBag.put(s2, newBag.getOrDefault(s2, 0) + 1);
+        return new SymbolicSum(newBag);
     }
 
     // e1 x n
@@ -164,15 +167,14 @@ public abstract class SymbolicExpression extends Value {
 
         if (s.isSumExpr()) {
             final SymbolicSum sum = (SymbolicSum) s;
+            final Map<SymbolicExpression, Integer> newBag = new HashMap<>();
             for (final Map.Entry<SymbolicExpression, Integer> entry : sum.getBag().entrySet()) {
-                sum.getBag().put(entry.getKey(), entry.getValue() * factor);
+                newBag.put(entry.getKey(), entry.getValue() * factor);
             }
-            return sum;
+            return new SymbolicSum(newBag);
         }
 
-        final SymbolicSum ret = new SymbolicSum();
-        ret.add(s, factor);
-        return ret;
+        return new SymbolicSum(Map.of(s, factor));
     }
 
     // max(e1, e2)
@@ -184,6 +186,8 @@ public abstract class SymbolicExpression extends Value {
     private static AtomicBoolean ltStarted;
     private static AtomicBoolean ltReady;
     private static HashMap<Value, Set<Value>> ltRelation = new HashMap<>();
+    // In order to do (more) efficient LE checks, we construct the relation for each expression as it is created.
+    private static HashMap<SymbolicExpression, Set<SymbolicExpression>> leRelation = new HashMap<>();
 
     private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2, final Value ltRelation) {
         if (e1.isEmptyExpr()) {
