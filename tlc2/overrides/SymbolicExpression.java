@@ -1,7 +1,6 @@
 package tlc2.overrides;
 
 import java.util.BitSet;
-import java.util.EmptyStackException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -14,7 +13,6 @@ import tlc2.util.FP64;
 import tlc2.value.Values;
 import tlc2.value.impl.BoolValue;
 import tlc2.value.impl.EnumerableValue;
-import tlc2.value.impl.FunctionValue;
 import tlc2.value.impl.IntValue;
 import tlc2.value.impl.TupleValue;
 import tlc2.value.impl.Value;
@@ -180,7 +178,7 @@ public abstract class SymbolicExpression extends Value {
     // max(e1, e2)
     @TLAPlusOperator(identifier = "Max", module = "SymbolicExpression", warn = false)
     public static Value max(final Value e1, final Value e2, final Value ltRelation) {
-        return null; // TODO: Implement correctly
+        return (Value) e1.deepCopy(); // TODO: Implement correctly
     }
 
     private static AtomicBoolean ltStarted;
@@ -216,14 +214,53 @@ public abstract class SymbolicExpression extends Value {
         }
 
         if (e1.isSumExpr() & e2.isSumExpr()) {
-            return SymbolicExpression.subset((SymbolicSum)e1, (SymbolicSum)e2, ltRelation);
+            return SymbolicExpression.subset((SymbolicSum)e1.deepCopy(), (SymbolicSum)e2.deepCopy(), ltRelation);
         }
 
+        if (e1.isSumExpr() & e2.isAtom()) {
+            // TODO: Finish
+            return false;
+        }
 
+        if (e1.isSumExpr() & e2.isMaxExpr()) {
+            // TODO: Finish
+            return false;
+        }
+
+        if (e1.isAtom() & e2.isSumExpr()) {
+            // TODO: Finish
+            return false; 
+        }
+
+        if (e1.isMaxExpr() & e2.isSumExpr()) {
+            // TODO: Finish
+            return false;
+        }
+
+        return false;
     }
 
     private static boolean subset(final SymbolicSum s1, final SymbolicSum s2, final Value ltRelation) {
+        final Map<SymbolicExpression, Integer> s1b = s1.getBag();
+        final Map<SymbolicExpression, Integer> s2b = s2.getBag();
 
+        for (final SymbolicExpression e : s1b.keySet()) {
+            if (s2b.containsKey(e)) {
+                final int s1v = s1b.get(e);
+                final int s2v = s2b.get(e);
+                s1b.put(e, s1v < s2v ? 0 : s1v - s2v);
+                s2b.put(e, s1v < s2v ? s2v - s1v : 0);
+            }
+        }
+        s1b.values().removeIf(v -> v == 0);
+        s2b.values().removeIf(v -> v == 0);
+
+        if (s1b.isEmpty()) {
+            return true;
+        }
+
+        // TODO: finish
+        return false;
     }
 
     private static int atomicCompareRelationSet(final Value a1, final Value a2) {
@@ -249,7 +286,7 @@ public abstract class SymbolicExpression extends Value {
     }
 
     private static int atomicCompare(final Value a1, final Value a2, final Value lessThanRelation) {
-        if (!(a1 instanceof SymbolicAtom && a2 instanceof SymbolicAtom && lessThanRelation instanceof FunctionValue)) {
+        if (!(a1 instanceof SymbolicAtom && a2 instanceof SymbolicAtom && lessThanRelation instanceof EnumerableValue)) {
             Assert.fail("Attempted to compare atoms that are not atoms or not function");
             return 2;
         }
@@ -321,13 +358,13 @@ public abstract class SymbolicExpression extends Value {
                 final SymbolicExpression symOther = (SymbolicExpression) other;
                 if (this.equals(other)) {
                     return 0;
-                }
-                if (((BoolValue)SymbolicExpression.lessThanEqual(this, symOther)).val) {
-                    // this is less
-                    return -1;
-                } else if (((BoolValue)SymbolicExpression.lessThanEqual(symOther, this)).val) {
-                    // other is less
-                    return 1;
+                // }
+                // if (((BoolValue)SymbolicExpression.lessThanEqual(this, symOther)).val) {
+                //     // this is less
+                //     return -1;
+                // } else if (((BoolValue)SymbolicExpression.lessThanEqual(symOther, this)).val) {
+                //     // other is less
+                //     return 1;
                 } else {
                     // unknown
                     return Long.compare(this.fingerPrint(FP64.Zero), symOther.fingerPrint(FP64.Zero));

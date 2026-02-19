@@ -17,10 +17,11 @@ LOCAL AtomLEHelp(a, b, atoms, LTRelation) ==
             /\ AtomLEHelp(c, b, atoms \ {a, b, c}, LTRelation)
 
 LOCAL AtomLE(a, b, LTRelation) ==
-    LET
-        atoms == DOMAIN(LTRelation) \cup {LTRelation[x] : x \in DOMAIN LTRelation}
-    IN 
-        AtomLEHelp(a, b, atoms, LTRelation)
+    FALSE
+    \* LET
+    \*     atoms == DOMAIN(LTRelation) \cup {LTRelation[x] : x \in DOMAIN LTRelation}
+    \* IN 
+    \*     AtomLEHelp(a, b, atoms, LTRelation)
 
 (* EXPR == EMPTY | atom | <<EXPR, EXPR>> | [EXPR -> Nat] *)
 EMPTY == [type |-> "empty", val |-> {}]

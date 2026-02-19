@@ -2,8 +2,8 @@
 EXTENDS Sequences, Naturals, Bags, SymbolicExpression
 
 Atom == {"QueueingDelay", "MessageDelay", "ReceiveTimeout", "Alpha", "Beta", "Gamma", "Startup"}
-Ordering == ({"Startup"} \X (Atom \ {"Startup"})) \cup ((Atom \ {"Startup", "QueueingDelay"}) \X {"QueueingDelay"})
-
+Ordering == {}
+    
 D == Expr("MessageDelay")
 RECEIVE_TIMEOUT == Expr("ReceiveTimeout")
 QUEUEING == Expr("QueueingDelay")
