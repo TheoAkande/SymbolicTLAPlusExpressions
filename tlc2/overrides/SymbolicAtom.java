@@ -1,7 +1,9 @@
 package tlc2.overrides;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
@@ -16,7 +18,27 @@ public class SymbolicAtom extends SymbolicExpression {
 
     private final String val;
 
-    public SymbolicAtom(final Value val) {
+    public static SymbolicAtom generate(final Value val) {
+        final SymbolicAtom newAtom = new SymbolicAtom(val);
+        final SymbolicExpression oldAtom = SymbolicExpression.get(newAtom);
+        if (oldAtom != null) {
+            return (SymbolicAtom) oldAtom;
+        }
+        SymbolicAtom.setup(newAtom);
+        return newAtom;
+    } 
+
+    // setup a new symbolic atom for le
+    private static void setup(final SymbolicAtom e) {
+        final Set<SymbolicExpression> le = new HashSet<>();
+        le.add(e);
+        for (final SymbolicExpression o : SymbolicExpression.ltRelation.getOrDefault(e, SymbolicExpression.emptySet)) {
+            le.addAll(SymbolicExpression.getAllLE(o));
+        } 
+    }
+
+    // Private constructor to avoid making too many
+    private SymbolicAtom(final Value val) {
         try {
             if (val instanceof StringValue) {
                 this.val = ((StringValue) val).getVal().toString();
