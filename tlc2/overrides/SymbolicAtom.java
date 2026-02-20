@@ -24,16 +24,32 @@ public class SymbolicAtom extends SymbolicExpression {
         if (oldAtom != null) {
             return (SymbolicAtom) oldAtom;
         }
-        SymbolicAtom.setup(newAtom);
+        newAtom.setup();
         return newAtom;
     } 
 
     // setup a new symbolic atom for le
-    private static void setup(final SymbolicAtom e) {
-        final Set<SymbolicExpression> le = new HashSet<>();
-        le.add(e);
-        for (final SymbolicExpression o : SymbolicExpression.ltRelation.getOrDefault(e, SymbolicExpression.emptySet)) {
-            le.addAll(SymbolicExpression.getAllLE(o));
+    private void setup() {
+        final Set<SymbolicExpression> le = this.getAllLE();
+        final Set<SymbolicExpression> gt = this.getAllGT();
+        le.add(SymbolicEmpty.getInstance());
+        SymbolicEmpty.getInstance().setLessThan(this);
+        le.add(this);
+        for (final SymbolicExpression greater : SymbolicExpression.ltRelation.getOrDefault(this, SymbolicExpression.emptySet)) {
+            le.add(greater);
+            le.addAll(greater.getAllGT());
+            greater.setGreaterThan(this);
+            for (final SymbolicExpression g: greater.getAllGT()) {
+                g.setGreaterThan(this);
+            }
+        }
+        for (final SymbolicExpression lesser : SymbolicExpression.gtRelation.getOrDefault(this, SymbolicExpression.emptySet)) {
+            gt.add(lesser);
+            gt.addAll(lesser.getAllLE());
+            lesser.setLessThan(this);
+            for (final SymbolicExpression l: lesser.getAllLE()) {
+                l.setGreaterThan(this);
+            }
         }
     }
 

@@ -241,23 +241,23 @@ public abstract class SymbolicExpression extends Value {
     private static AtomicBoolean ltStarted;
     private static AtomicBoolean ltReady;
     protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> ltRelation = new ConcurrentHashMap<>();
+    protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
     // In order to do (more) efficient LE checks, we construct the relation for each expression as it is created.
-    protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> leRelation = new ConcurrentHashMap<>();
+    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> leRelation = new ConcurrentHashMap<>();
+    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
     private static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
 
     protected static SymbolicExpression get(final SymbolicExpression e) {
         return canonicalMap.get(e);   
     }
 
-    protected static Set<SymbolicExpression> getAllLE(final SymbolicExpression e) {
-        return SymbolicExpression.leRelation.getOrDefault(e, emptySet);
-    }
-
     private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2) {
         if (e1.isEmptyExpr()) {
             return true;
         }
+
+        return e1.le.contains(e2);
 
         // if (e1.isAtom() & e2.isAtom()) {
         //     return SymbolicExpression.atomicCompare(e1, e2, ltRelation) < 1;
@@ -306,7 +306,7 @@ public abstract class SymbolicExpression extends Value {
         //     return false;
         // }
 
-        return false;
+        // return false;
     }
 
     /* --------------------- Value --------------------- */
@@ -314,6 +314,8 @@ public abstract class SymbolicExpression extends Value {
 
     private long zeroFingerprintCache;
     private boolean zeroFingerprintSet = false;
+    private final Set<SymbolicExpression> le = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e <= this 
+    private final Set<SymbolicExpression> gt = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e > this
 
     protected abstract Map<SymbolicExpression, Integer> getValue();
     protected boolean isEmptyExpr() {return false;}
@@ -457,6 +459,21 @@ public abstract class SymbolicExpression extends Value {
         return this.zeroFingerprintCache;
     }
 
+    protected void setLessThan(final SymbolicExpression greater) {
+        this.gt.add(greater);
+    }
+
+    protected void setGreaterThan(final SymbolicExpression less) {
+        this.le.add(less);
+    }
+
+    protected Set<SymbolicExpression> getAllLE() {
+        return this.le;
+    }
+
+    protected Set<SymbolicExpression> getAllGT() {
+        return this.gt;
+    }
 
     protected abstract long getFullFingerprint(long fp);
 }
