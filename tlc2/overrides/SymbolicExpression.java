@@ -265,7 +265,7 @@ public abstract class SymbolicExpression extends Value {
             return true;
         }
 
-        return e1.le.contains(e2);
+        return e2.le.contains(e1);
 
         // if (e1.isAtom() & e2.isAtom()) {
         //     return SymbolicExpression.atomicCompare(e1, e2, ltRelation) < 1;
