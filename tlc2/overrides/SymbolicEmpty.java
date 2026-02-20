@@ -14,7 +14,9 @@ public class SymbolicEmpty extends SymbolicExpression {
         return instance;
     }
 
-    private SymbolicEmpty() {}
+    private SymbolicEmpty() {
+        SymbolicExpression.addExpression(this);
+    }
 
     @Override
     protected boolean isEmptyExpr() {return true;}

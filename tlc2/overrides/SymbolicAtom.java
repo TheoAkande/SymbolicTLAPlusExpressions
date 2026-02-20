@@ -1,7 +1,6 @@
 package tlc2.overrides;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,26 +29,33 @@ public class SymbolicAtom extends SymbolicExpression {
 
     // setup a new symbolic atom for le
     private void setup() {
-        final Set<SymbolicExpression> le = this.getAllLE();
-        final Set<SymbolicExpression> gt = this.getAllGT();
-        le.add(SymbolicEmpty.getInstance());
-        SymbolicEmpty.getInstance().setLessThan(this);
-        le.add(this);
-        for (final SymbolicExpression greater : SymbolicExpression.ltRelation.getOrDefault(this, SymbolicExpression.emptySet)) {
-            le.add(greater);
-            le.addAll(greater.getAllGT());
-            greater.setGreaterThan(this);
-            for (final SymbolicExpression g: greater.getAllGT()) {
-                g.setGreaterThan(this);
+        try {
+            final Set<SymbolicExpression> le = this.getAllLE();
+            final Set<SymbolicExpression> ge = this.getAllGE();
+            le.add(SymbolicEmpty.getInstance());
+            SymbolicEmpty.getInstance().setLessThan(this);
+            le.add(this);
+            ge.add(this);
+            for (final SymbolicExpression greater : SymbolicExpression.ltRelation.getOrDefault(this, SymbolicExpression.emptySet)) {
+                le.add(greater);
+                le.addAll(greater.getAllGE());
+                greater.setGreaterThan(this);
+                for (final SymbolicExpression g: greater.getAllGE()) {
+                    g.setGreaterThan(this);
+                }
             }
-        }
-        for (final SymbolicExpression lesser : SymbolicExpression.gtRelation.getOrDefault(this, SymbolicExpression.emptySet)) {
-            gt.add(lesser);
-            gt.addAll(lesser.getAllLE());
-            lesser.setLessThan(this);
-            for (final SymbolicExpression l: lesser.getAllLE()) {
-                l.setGreaterThan(this);
+            for (final SymbolicExpression lesser : SymbolicExpression.gtRelation.getOrDefault(this, SymbolicExpression.emptySet)) {
+                ge.add(lesser);
+                ge.addAll(lesser.getAllLE());
+                lesser.setLessThan(this);
+                for (final SymbolicExpression l: lesser.getAllLE()) {
+                    l.setGreaterThan(this);
+                }
             }
+            SymbolicExpression.addExpression(this);
+        } catch (final RuntimeException | OutOfMemoryError e) {
+            if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
+            else {throw e;}
         }
     }
 

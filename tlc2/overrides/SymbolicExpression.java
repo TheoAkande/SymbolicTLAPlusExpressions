@@ -248,8 +248,16 @@ public abstract class SymbolicExpression extends Value {
     // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
     private static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
 
+    protected static void addExpression(final SymbolicExpression e) {
+        SymbolicExpression.canonicalMap.put(e, e);
+    }
+
     protected static SymbolicExpression get(final SymbolicExpression e) {
         return canonicalMap.get(e);   
+    }
+
+    protected static Set<SymbolicExpression> getAll() {
+        return SymbolicExpression.canonicalMap.keySet();
     }
 
     private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2) {
@@ -315,7 +323,7 @@ public abstract class SymbolicExpression extends Value {
     private long zeroFingerprintCache;
     private boolean zeroFingerprintSet = false;
     private final Set<SymbolicExpression> le = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e <= this 
-    private final Set<SymbolicExpression> gt = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e > this
+    private final Set<SymbolicExpression> ge = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e >= this
 
     protected abstract Map<SymbolicExpression, Integer> getValue();
     protected boolean isEmptyExpr() {return false;}
@@ -460,7 +468,7 @@ public abstract class SymbolicExpression extends Value {
     }
 
     protected void setLessThan(final SymbolicExpression greater) {
-        this.gt.add(greater);
+        this.ge.add(greater);
     }
 
     protected void setGreaterThan(final SymbolicExpression less) {
@@ -471,8 +479,8 @@ public abstract class SymbolicExpression extends Value {
         return this.le;
     }
 
-    protected Set<SymbolicExpression> getAllGT() {
-        return this.gt;
+    protected Set<SymbolicExpression> getAllGE() {
+        return this.ge;
     }
 
     protected abstract long getFullFingerprint(long fp);

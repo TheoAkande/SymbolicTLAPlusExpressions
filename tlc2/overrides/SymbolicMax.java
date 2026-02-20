@@ -2,12 +2,12 @@ package tlc2.overrides;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
 import tlc2.value.IValue;
 import tlc2.value.Values;
-
 import util.Assert;
 
 public class SymbolicMax extends SymbolicExpression {
@@ -15,7 +15,45 @@ public class SymbolicMax extends SymbolicExpression {
     private final SymbolicExpression v1;
     private final SymbolicExpression v2;
 
-    public SymbolicMax(final IValue v1, final IValue v2) {
+    public static SymbolicMax generate(final IValue v1, final IValue v2) {
+        final SymbolicMax newMax = new SymbolicMax(v1, v2);
+        final SymbolicExpression oldMax = SymbolicExpression.get(newMax);
+        if (oldMax != null) {
+            return (SymbolicMax) oldMax;
+        }
+        newMax.setup();
+        return newMax;
+    } 
+
+    // setup a new symbolic max for le
+    private void setup() {
+        try {
+            final Set<SymbolicExpression> le = this.getAllLE();
+            final Set<SymbolicExpression> ge = this.getAllGE();
+            le.add(SymbolicEmpty.getInstance());
+            SymbolicEmpty.getInstance().setLessThan(this);
+            le.add(this);
+            ge.add(this);
+            for (final SymbolicExpression e : SymbolicExpression.getAll()) {
+                if (v1.getAllLE().contains(e) || v2.getAllLE().contains(e)) {
+                    le.add(e);
+                    e.setLessThan(this);
+                }
+                if (v1.getAllGE().contains(e) && v2.getAllGE().contains(e)) {
+                    ge.add(e);
+                    e.setGreaterThan(this);
+                } else if (v1.getAllGE().contains(e) || v2.getAllGE().contains(e)) {
+                    // TODO: maybe try a comparison? - check if it is possible for this case to be resolved
+                }
+            }
+            SymbolicExpression.addExpression(this);
+        } catch (final RuntimeException | OutOfMemoryError e) {
+            if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
+            else {throw e;}
+        }
+    }
+
+    private SymbolicMax(final IValue v1, final IValue v2) {
         try {
             if (v1 instanceof SymbolicExpression && v2 instanceof SymbolicExpression) {
                 final long f1 = v1.fingerPrint(FP64.Zero);
