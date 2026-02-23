@@ -22,6 +22,7 @@ MsgB == "MsgB"
 VARIABLES TauM, TauN, Messages, Sigma, Processed
 
 Init ==
+    /\ SetAtomLT(Ordering)
     /\ Messages = {}
     /\ Sigma = [n \in IDs |-> "Initial"]
     /\ TauN = [n \in IDs |-> EMPTY]
@@ -66,10 +67,10 @@ StartL ==
 
 ProcessL ==
     /\ Sigma[L] = "Listen"
-    /\ \E m \in Messages : m \notin Processed /\ LE(TauN[L], TauM[m], Ordering)
+    /\ \E m \in Messages : m \notin Processed /\ LE(TauN[L], TauM[m])
     /\ 
         LET 
-            message == CHOOSE m \in Messages : m \notin Processed /\ LE(TauN[L], TauM[m], Ordering)
+            message == CHOOSE m \in Messages : m \notin Processed /\ LE(TauN[L], TauM[m])
             result == Nodes!ReceiveQueue(Sigma, Messages, TauN, TauM, L, message, "Listen", {}, Expr("Gamma"))
         IN (
             /\ Messages' = result.m
@@ -95,8 +96,8 @@ QueueMessage ==
     \*         T!LE(TauN[L], T!Add(TauM[m], T!Mult(QUEUEING, n)))
     /\ TauM' = [
         m \in Messages |-> 
-            IF m \in Processed \/ LE(TauN[L], TauM[m], Ordering) THEN TauM[m]
-            ELSE Max(TauM[m], TauN[L], Ordering)
+            IF m \in Processed \/ LE(TauN[L], TauM[m]) THEN TauM[m]
+            ELSE Max(TauM[m], TauN[L])
         ]
     /\ UNCHANGED << TauN, Messages, Sigma, Processed >>
 
@@ -115,6 +116,6 @@ Next ==
     \/ Done
 
 LBound ==
-    LE(TauN[L], Add(Max(Expr("Alpha"), Expr("Beta"), Ordering), Add(D, Mult(Expr("Gamma"), 2))), Ordering)
+    LE(TauN[L], Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
 
 =====================================================================

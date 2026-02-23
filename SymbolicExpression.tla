@@ -7,16 +7,7 @@
 *)
 EXTENDS Naturals, Bags, Sequences, FiniteSets
 
-RECURSIVE AtomLEHelp(_, _, _, _)
-LOCAL AtomLEHelp(a, b, atoms, LTRelation) ==
-    \/ a = b
-    \/ <<a, b>> \in LTRelation
-    \/ 
-        \E c \in atoms : 
-            /\ <<a, c>> \in LTRelation 
-            /\ AtomLEHelp(c, b, atoms \ {a, b, c}, LTRelation)
-
-LOCAL AtomLE(a, b, LTRelation) ==
+LOCAL AtomLE(a, b) ==
     FALSE
     \* LET
     \*     atoms == DOMAIN(LTRelation) \cup {LTRelation[x] : x \in DOMAIN LTRelation}
@@ -33,6 +24,10 @@ LOCAL ExprToBag(a) ==
         [] a.type \in NonEmptyBase -> MakeBag(a)
         [] a.type = "sum" -> a.val
 
+(* For the java override *)
+SetAtomLT(LTRelation) ==
+    TRUE
+
 (* Atom to Expression *)
 Expr(a) == [type |-> "atom", val |-> a]
 (* Bag to Expression *)
@@ -46,29 +41,29 @@ ToExpr(bag) ==
         CHOOSE v \in (DOMAIN bag) : TRUE (* Since only one item *)
     ELSE Sum(bag)
 
-RECURSIVE LE(_, _, _), Subset(_, _, _)
-LE(a, b, LT) ==
+RECURSIVE LE(_, _), Subset(_, _)
+LE(a, b) ==
     CASE a.type = "empty" -> TRUE
         [] b.type = "empty" -> 
             a.type = "empty"
         [] a.type = "atom" /\ b.type = "atom" -> 
-            a.val = b.val \/ AtomLE(a.val, b.val, LT)
+            a.val = b.val \/ AtomLE(a.val, b.val)
         [] a.type = "max" /\ b.type = "max" -> 
             \E i \in 1..2 : \E j \in 1..2 :
-                /\ LE(a.val[1], b.val[i], LT)
-                /\ LE(a.val[2], b.val[j], LT)
+                /\ LE(a.val[1], b.val[i])
+                /\ LE(a.val[2], b.val[j])
         [] a.type # "max" /\ b.type = "max" ->
-            \/ LE(a, b.val[1], LT)
-            \/ LE(a, b.val[2], LT)
+            \/ LE(a, b.val[1])
+            \/ LE(a, b.val[2])
         [] a.type = "max" /\ b.type # "max" ->
-            /\ LE(a.val[1], b, LT)
-            /\ LE(a.val[2], b, LT)
+            /\ LE(a.val[1], b)
+            /\ LE(a.val[2], b)
         [] a.type = "sum" /\ b.type = "sum" ->
-            Subset(a.val, b.val, LT)
+            Subset(a.val, b.val)
         [] a.type = "sum" /\ b.type \in NonEmptyBase ->
-            LE(a, Sum(MakeBag(b)), LT)
+            LE(a, Sum(MakeBag(b)))
         [] a.type \in NonEmptyBase /\ b.type = "sum" ->
-            Subset(MakeBag(a), b.val, LT)
+            Subset(MakeBag(a), b.val)
 
 (* 
     A helper for LE; takes in two bags of symbolic expressions and is true if 
@@ -76,7 +71,7 @@ LE(a, b, LT) ==
     Note that we can't use typical bag subseteq because we need to use the LE
     relation
 *)
-LOCAL Subset(a, b, LT) ==
+LOCAL Subset(a, b) ==
     IF a = EmptyBag THEN TRUE
     ELSE 
         LET 
@@ -85,8 +80,8 @@ LOCAL Subset(a, b, LT) ==
         IN 
             \E y \in DOMAIN b : LET m == CopiesIn(y, b) IN
                 /\ n <= m
-                /\ LE(x, y, LT)
-                /\ Subset(a (-) [v \in {x} |-> n], b (-) [v \in {y} |-> n], LT)
+                /\ LE(x, y)
+                /\ Subset(a (-) [v \in {x} |-> n], b (-) [v \in {y} |-> n])
 
 
 RECURSIVE Equal(_, _)
@@ -207,9 +202,9 @@ Mult(a, n) ==
         ELSE Sum([expr \in BagToSet(a.val) |-> a[expr] * n])
 
 RECURSIVE Max(_, _, _)
-Max(a, b, LT) ==
-    IF LE(a, b, LT) /\ \lnot LE(b, a, LT) THEN b
-    ELSE IF LE(b, a, LT) /\ \lnot LE(a, b, LT) THEN a
+Max(a, b) ==
+    IF LE(a, b) /\ \lnot LE(b, a) THEN b
+    ELSE IF LE(b, a) /\ \lnot LE(a, b) THEN a
     ELSE IF Equal(a, b) THEN a
     ELSE
         LET 

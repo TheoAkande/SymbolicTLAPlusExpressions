@@ -57,7 +57,7 @@ ReceiveTimeout(Sigma, M, TauN, TauM, n, sigmaPrime, mOut, a) ==
 ReceiveQueue(Sigma, M, TauN, TauM, n, m, sigmaPrime, mOut, a) ==
     LET
         mPrime == M \cup mOut
-        newTauN == Add(Max(TauN[n], TauM[m], LTRelation), a)
+        newTauN == Add(Max(TauN[n], TauM[m]), a)
         newMessageTime == Add(newTauN, D)
     IN
         [
