@@ -176,20 +176,20 @@ public class SymbolicSum extends SymbolicExpression {
             final Set<SymbolicExpression> thisFlat = SymbolicSum.flatten(thisWithoutCommon);
             final Set<SymbolicExpression> otherFlat = SymbolicSum.flatten(otherWithoutCommon);
 
-            for (final SymbolicExpression thisExp : thisFlat) {
-                boolean geAll = true;
-                for (final SymbolicExpression otherExp : otherFlat) {
-                    if (!geAll || !SymbolicExpression.le(otherExp, thisExp)) {
-                        geAll = false;
+            for (final SymbolicExpression otherExp : otherFlat) {
+                boolean existsGreater = false;
+                for (final SymbolicExpression thisExp : thisFlat) {
+                    if (SymbolicExpression.le(otherExp, thisExp)) {
+                        existsGreater = true;
                         break;
                     }
                 }
-                if (geAll) {
-                    return true;
+                if (!existsGreater) {
+                    return false;
                 }
             }
         }
-        return false;
+        return true;
     }
 
     private boolean lessThanWithoutCache(final SymbolicExpression e) {
