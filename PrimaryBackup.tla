@@ -1,7 +1,7 @@
 ------------------------ MODULE PrimaryBackup ------------------------
 EXTENDS Sequences, Naturals, Bags, SymbolicExpression
 
-Atom == {"QueueingDelay", "MessageDelay", "ReceiveTimeout", "Alpha", "Beta", "Gamma", "Startup"}
+Atom == {"QueueingDelay", "MessageDelay", "ReceiveTimeout", "Alpha", "Beta", "Gamma"}
 Ordering == {}
     
 D == Expr("MessageDelay")
@@ -56,7 +56,7 @@ SendB ==
 StartL ==
     /\ Sigma[L] = "Initial"
     /\
-        LET result == Nodes!NoReceive(Sigma, Messages, TauN, TauM, L, "Listen", {}, Expr("Startup"))
+        LET result == Nodes!NoReceive(Sigma, Messages, TauN, TauM, L, "Listen", {}, EMPTY)
         IN (
             /\ Messages' = result.m
             /\ Sigma' = result.sigma
@@ -116,6 +116,7 @@ Next ==
     \/ Done
 
 LBound ==
-    LE(TauN[L], Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
+    LE(Add(D, Add(Expr("Gamma"), Expr("Alpha"))), Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
+    \* LE(TauN[L], Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
 
 =====================================================================
