@@ -44,8 +44,6 @@ public class SymbolicMax extends SymbolicExpression {
                 if (v1.getAllGE().contains(e) && v2.getAllGE().contains(e)) {
                     ge.add(e);
                     e.setGreaterThan(this);
-                } else if (v1.getAllGE().contains(e) || v2.getAllGE().contains(e)) {
-                    // TODO: maybe try a comparison? - check if it is possible for this case to be resolved
                 }
             }
             SymbolicExpression.addExpression(this);
@@ -82,7 +80,7 @@ public class SymbolicMax extends SymbolicExpression {
 
     @Override
     public IValue deepCopy() {
-        return new SymbolicMax(v1.deepCopy(), v2.deepCopy());
+        return this;
     }
 
     @Override

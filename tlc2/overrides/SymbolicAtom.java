@@ -68,7 +68,7 @@ public class SymbolicAtom extends SymbolicExpression {
 
     @Override
     public IValue deepCopy() {
-        return new SymbolicAtom(new StringValue(val));
+        return this;
     }
 
     @Override

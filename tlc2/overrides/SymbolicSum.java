@@ -97,7 +97,7 @@ public class SymbolicSum extends SymbolicExpression {
         return newSum;
     } 
 
-    // setup a new symbolic max for le
+    // setup a new symbolic sum for le
     private void setup() {
         try {
             for (final SymbolicExpression e : this.bag.keySet()) {
@@ -131,6 +131,9 @@ public class SymbolicSum extends SymbolicExpression {
     }
 
     private boolean greaterThanWithoutCache(final SymbolicExpression e) {
+        if (this.equals(e)) {
+            return false;
+        }
         final Set<SymbolicExpression> keys = this.bag.keySet();
         if (e.isEmptyExpr()) {
             return true;
@@ -138,15 +141,8 @@ public class SymbolicSum extends SymbolicExpression {
             return this.atoms.contains(e);
         } else if (e.isMaxExpr()) {
             final SymbolicMax m = (SymbolicMax) e;
-            return this.greaterThanWithoutCache(m.first()) && this.greaterThanWithoutCache(m.second());
+            return (this.equals(m.first()) || this.greaterThanWithoutCache(m.first())) && (this.equals(m.second()) || this.greaterThanWithoutCache(m.second()));
         } else if (e.isSumExpr()) {
-            // A sum should always be one more than an existing sum (known to be less); if not then this wont be known either
-            for (final SymbolicExpression o : e.getAllGE()) {
-                if (this.isOneGreater(o)) {
-                    return true;
-                }
-            }
-
             final SymbolicSum other = (SymbolicSum) e;
             final Set<SymbolicExpression> otherKeys = other.bag.keySet();
             final Map<SymbolicExpression, Integer> thisWithoutCommon = new HashMap<>();
@@ -192,6 +188,9 @@ public class SymbolicSum extends SymbolicExpression {
     }
 
     private boolean lessThanWithoutCache(final SymbolicExpression e) {
+        if (this.equals(e)) {
+            return false;
+        }
         if (e.isEmptyExpr() || e.isAtomExpr()) {
             return false;
         }
@@ -200,35 +199,6 @@ public class SymbolicSum extends SymbolicExpression {
             return this.lessThanWithoutCache(maxOther.first()) || this.lessThanWithoutCache(maxOther.second());
         }
         return ((SymbolicSum) e).greaterThanWithoutCache(this);
-    }
-
-    private boolean isOneGreater(final SymbolicExpression o) {
-        if (o.isEmptyExpr()) return false;
-        if (o.isAtomExpr() || o.isMaxExpr()) return this.cardinality == 2 && this.bag.containsKey(o);
-        if (o.isSumExpr()) {
-            final SymbolicSum sumOther = (SymbolicSum) o;
-            if (sumOther.cardinality != this.cardinality - 1) {
-                return false;
-            }
-            boolean oneDifference = false;
-            for (final SymbolicExpression v : this.bag.keySet()) {
-                if (!sumOther.bag.containsKey(v)) {
-                    if (oneDifference || this.bag.get(v) > 1) {
-                        return false;
-                    }
-                    oneDifference = true;
-                } else {
-                    if (sumOther.bag.get(v) != this.bag.get(v)) {
-                        if (oneDifference) {
-                            return false;
-                        }
-                        oneDifference = true;
-                    }
-                }
-            }
-            return oneDifference;
-        }
-        return false;
     }
 
     protected SymbolicExpression extract() {
@@ -274,8 +244,7 @@ public class SymbolicSum extends SymbolicExpression {
     @Override
     public IValue deepCopy() {
         try {
-            final SymbolicSum ret = SymbolicSum.generate(this.bag);
-            return ret;
+            return this;
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
             else {throw e;}
@@ -295,7 +264,8 @@ public class SymbolicSum extends SymbolicExpression {
                     sb.append(" + ");
                 }
                 index++;
-            } 
+            }
+            sb.append(" : (" + this.cardinality + ")");
             return sb;
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}

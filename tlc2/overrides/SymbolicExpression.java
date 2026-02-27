@@ -6,16 +6,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import tlc2.tool.EvalControl;
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
 import tlc2.value.Values;
 import tlc2.value.impl.BoolValue;
-import tlc2.value.impl.EnumerableValue;
 import tlc2.value.impl.IntValue;
-import tlc2.value.impl.TupleValue;
 import tlc2.value.impl.Value;
 import tlc2.value.impl.ValueExcept;
 
@@ -23,11 +19,7 @@ import util.Assert;
 
 /* 
     TODO: 
-    - get rid of ltRelation from parameter of SymbolicExpression spec
-    - add in the setup lt relation operator to SymbolicExpression spec
-    - form LE relation for
-        - max
-        - sum
+    - Make expression generation atomic
 */ 
 
 public abstract class SymbolicExpression extends Value {
@@ -105,6 +97,28 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression exp1 = (SymbolicExpression) e1;
         final SymbolicExpression exp2 = (SymbolicExpression) e2;
 
+        System.out.println("Evaluating " + exp1.toString() + " <= " + exp2.toString());
+        System.out.println(exp1.toString() + " <= :");
+        for (final SymbolicExpression e : exp1.ge) {
+            System.out.println(e);
+        }
+        System.out.println("--------------------------");
+        System.out.println(exp1.toString() + " >= :");
+        for (final SymbolicExpression e : exp1.le) {
+            System.out.println(e);
+        }
+        System.out.println("--------------------------");
+        System.out.println(exp2.toString() + " <= :");
+        for (final SymbolicExpression e : exp2.ge) {
+            System.out.println(e);
+        }
+        System.out.println("--------------------------");
+        System.out.println(exp2.toString() + " >= :");
+        for (final SymbolicExpression e : exp2.le) {
+            System.out.println(e);
+        }
+        System.out.println("--------------------------");
+
         return SymbolicExpression.le(exp1, exp2) ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
@@ -120,11 +134,11 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s2 = (SymbolicExpression) e2;
 
         if (s1.isEmptyExpr()) {
-            return (Value) s2.deepCopy();
+            return s2;
         }
 
         if (s2.isEmptyExpr()) {
-            return (Value) s1.deepCopy();
+            return s1;
         }
 
         if (s1.isSumExpr() && s2.isSumExpr()) {
@@ -144,10 +158,7 @@ public abstract class SymbolicExpression extends Value {
             return ((SymbolicSum) s2).addTo(s1);
         }
 
-        final Map<SymbolicExpression, Integer> newBag = new HashMap<>();
-        newBag.put(s1, 1);
-        newBag.put(s2, newBag.getOrDefault(s2, 0) + 1);
-        return SymbolicSum.generate(newBag);
+        return SymbolicSum.generate(new HashMap<>()).addTo(s1).addTo(s2);
     }
 
     // e1 x n
@@ -212,7 +223,7 @@ public abstract class SymbolicExpression extends Value {
     }
 
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
-    private static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
+    protected static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
 
     protected static void addExpression(final SymbolicExpression e) {
         SymbolicExpression.canonicalMap.put(e, e);
