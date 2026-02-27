@@ -20,7 +20,7 @@ import util.Assert;
 
 /* 
     TODO: 
-    - Make expression generation atomic
+    - Correct tla+ spec for symbolic expressions
 */ 
 
 public abstract class SymbolicExpression extends Value {
