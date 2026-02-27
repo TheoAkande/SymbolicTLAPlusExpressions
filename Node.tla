@@ -3,7 +3,6 @@ EXTENDS Sequences, Naturals, SymbolicExpression
 
 CONSTANTS LTRelation
 
-
 D == Expr("MessageDelay")
 RECEIVE_TIMEOUT == Expr("ReceiveTimeout")
 QUEUEING == Expr("QueueingDelay")

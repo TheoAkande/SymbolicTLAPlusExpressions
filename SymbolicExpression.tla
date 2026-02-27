@@ -201,7 +201,7 @@ Mult(a, n) ==
         IF a.type \in NonEmptyBase THEN Sum([x \in {a} |-> n])
         ELSE Sum([expr \in BagToSet(a.val) |-> a[expr] * n])
 
-RECURSIVE Max(_, _, _)
+RECURSIVE Max(_, _)
 Max(a, b) ==
     IF LE(a, b) /\ \lnot LE(b, a) THEN b
     ELSE IF LE(b, a) /\ \lnot LE(a, b) THEN a
