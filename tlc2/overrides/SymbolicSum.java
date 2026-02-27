@@ -1,22 +1,69 @@
 package tlc2.overrides;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
 import tlc2.value.IValue;
-import tlc2.value.impl.BoolValue;
 
 public class SymbolicSum extends SymbolicExpression {
+    private static SymbolicSum combine(final SymbolicSum base, final SymbolicExpression other, final int mult) {
+        if (other.isEmptyExpr()) {
+            return base;
+        }
+        if (other.isAtomExpr() || other.isMaxExpr()) {
+            return base.addTo(other, mult);
+        }
+        SymbolicSum ret = base;
+        final SymbolicSum sumOther = (SymbolicSum) other;
+        for (final Map.Entry<SymbolicExpression, Integer> e : sumOther.bag.entrySet()) {
+            ret = ret.addTo(e.getKey(), mult * e.getValue());
+        }
+        return ret;
+    }
+
+    private static Set<SymbolicExpression> flatten(final Map<SymbolicExpression, Integer> bag) {
+        final Set<SymbolicSum> flat = new HashSet<>();
+        SymbolicSum baseWithAtoms =  SymbolicSum.generate(new HashMap<>());
+        for (final Map.Entry<SymbolicExpression, Integer> e : bag.entrySet()) {
+            if (e.getKey().isAtomExpr()) {
+                baseWithAtoms = baseWithAtoms.addTo(e.getKey(), e.getValue());
+            }
+        }
+        for (final Map.Entry<SymbolicExpression, Integer> e : bag.entrySet()) {
+            if (e.getKey().isAtomExpr()) {
+                continue;
+            }
+            assert e.getKey().isMaxExpr(); // It has to be a max expression
+            flat.add(SymbolicSum.combine(baseWithAtoms, ((SymbolicMax) e.getKey()).first(), e.getValue()));
+            flat.add(SymbolicSum.combine(baseWithAtoms, ((SymbolicMax) e.getKey()).second(), e.getValue()));
+        }
+        if (flat.isEmpty()) {
+            flat.add(baseWithAtoms);
+        }
+        final Set<SymbolicExpression> ret = new HashSet<>();
+        for (final SymbolicSum s : flat) {
+            if (s.cardinality == 0) {
+                ret.add(SymbolicEmpty.getInstance());
+            } else if (s.cardinality == 1) {
+                ret.add((SymbolicExpression) s.bag.keySet().toArray()[0]);
+            } else {
+                ret.add(s);
+            }
+        }
+
+        return ret;
+    }
 
     // INVARIANT: No two different keys are 'equal'
     private final Map<SymbolicExpression, Integer> bag = new HashMap<>();
     private int cardinality = 0;
     
     // Note: addTo is generally better to use (hence private)
-    private static SymbolicSum generate(final Map<SymbolicExpression, Integer> bag) {
+    protected static SymbolicSum generate(final Map<SymbolicExpression, Integer> bag) {
         final SymbolicSum newSum = new SymbolicSum(bag);
         final SymbolicExpression oldSum = SymbolicExpression.get(newSum);
         if (oldSum != null) {
@@ -29,13 +76,16 @@ public class SymbolicSum extends SymbolicExpression {
     // setup a new symbolic max for le
     private void setup() {
         try {
+            for (final SymbolicExpression e : this.bag.keySet()) {
+                this.atoms.addAll(e.atoms);
+            }
             final Set<SymbolicExpression> le = this.getAllLE();
             final Set<SymbolicExpression> ge = this.getAllGE();
             le.add(SymbolicEmpty.getInstance());
             SymbolicEmpty.getInstance().setLessThan(this);
             le.add(this);
             ge.add(this);
-            final Set<SymbolicExpression> keys = this.bag.keySet();
+            SymbolicExpression.addExpression(this); // TODO: Check that this doesn't cause recursive failures
             for (final SymbolicExpression e : SymbolicExpression.getAll()) {
                 if (this.greaterThanWithoutCache(e)) {
                     le.add(e);
@@ -45,7 +95,6 @@ public class SymbolicSum extends SymbolicExpression {
                     e.setGreaterThan(this);
                 }
             }
-            SymbolicExpression.addExpression(this);
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
             else {throw e;}
@@ -59,14 +108,10 @@ public class SymbolicSum extends SymbolicExpression {
 
     private boolean greaterThanWithoutCache(final SymbolicExpression e) {
         final Set<SymbolicExpression> keys = this.bag.keySet();
-        if (e.isEmpty()) {
+        if (e.isEmptyExpr()) {
             return true;
-        } else if (e.isAtom()) {
-            for (final SymbolicExpression o : keys) {
-                if (o.getAllLE().contains(e)) {
-                    return true;
-                }
-            }
+        } else if (e.isAtomExpr()) {
+            return this.atoms.contains(e);
         } else if (e.isMaxExpr()) {
             final SymbolicMax m = (SymbolicMax) e;
             return this.greaterThanWithoutCache(m.first()) && this.greaterThanWithoutCache(m.second());
@@ -77,19 +122,65 @@ public class SymbolicSum extends SymbolicExpression {
                     return true;
                 }
             }
-            // TODO: What if its not one more than an existing sum? How do i handle this waaaaaa
+
+            final SymbolicSum other = (SymbolicSum) e;
+            final Set<SymbolicExpression> otherKeys = other.bag.keySet();
+            final Map<SymbolicExpression, Integer> thisWithoutCommon = new HashMap<>();
+            final Map<SymbolicExpression, Integer> otherWithoutCommon = new HashMap<>();
+
+            for (final SymbolicExpression exp : keys) {
+                final int expV = this.bag.get(exp) - other.bag.getOrDefault(exp, 0);
+                if (expV > 0) {
+                    thisWithoutCommon.put(exp, expV);
+                } else if (expV < 0) {
+                    otherWithoutCommon.put(exp, -expV);
+                }
+            }
+            for (final SymbolicExpression exp : otherKeys) {
+                if (keys.contains(exp)) {
+                    continue;
+                }
+                final int expV = other.bag.get(exp) - this.bag.getOrDefault(exp, 0);
+                if (expV > 0) {
+                    otherWithoutCommon.put(exp, expV);
+                } else if (expV < 0) {
+                    thisWithoutCommon.put(exp, -expV);
+                }
+            }
+
+            final Set<SymbolicExpression> thisFlat = SymbolicSum.flatten(thisWithoutCommon);
+            final Set<SymbolicExpression> otherFlat = SymbolicSum.flatten(otherWithoutCommon);
+
+            for (final SymbolicExpression thisExp : thisFlat) {
+                boolean geAll = true;
+                for (final SymbolicExpression otherExp : otherFlat) {
+                    if (!geAll || !SymbolicExpression.le(otherExp, thisExp)) {
+                        geAll = false;
+                        break;
+                    }
+                }
+                if (geAll) {
+                    return true;
+                }
+            }
         }
         return false;
     }
 
     private boolean lessThanWithoutCache(final SymbolicExpression e) {
-        // TODO: Finish
-        return false;
+        if (e.isEmptyExpr() || e.isAtomExpr()) {
+            return false;
+        }
+        if (e.isMaxExpr()) {
+            final SymbolicMax maxOther = (SymbolicMax) e;
+            return this.lessThanWithoutCache(maxOther.first()) || this.lessThanWithoutCache(maxOther.second());
+        }
+        return ((SymbolicSum) e).greaterThanWithoutCache(this);
     }
 
     private boolean isOneGreater(final SymbolicExpression o) {
-        if (o.isEmpty()) return false;
-        if (o.isAtom() || o.isMaxExpr()) return this.cardinality == 2 && this.bag.containsKey(o);
+        if (o.isEmptyExpr()) return false;
+        if (o.isAtomExpr() || o.isMaxExpr()) return this.cardinality == 2 && this.bag.containsKey(o);
         if (o.isSumExpr()) {
             final SymbolicSum sumOther = (SymbolicSum) o;
             if (sumOther.cardinality != this.cardinality - 1) {
@@ -125,18 +216,22 @@ public class SymbolicSum extends SymbolicExpression {
     }
 
     public SymbolicSum addTo(final SymbolicExpression e) {
-        return addTo(e, 1);
-    }
-
-    public SymbolicSum addTo(final SymbolicExpression e, final int num) {
         try {
             final Map<SymbolicExpression, Integer> newBag = new HashMap<>(this.bag);
-            newBag.put(e, newBag.getOrDefault(e, 0) + num);
+            newBag.put(e, newBag.getOrDefault(e, 0) + 1);
             return SymbolicSum.generate(newBag);
         } catch (final RuntimeException | OutOfMemoryError err) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, err);}
             else {throw err;}
         }
+    }
+
+    public SymbolicSum addTo(final SymbolicExpression e, final int num) {
+        SymbolicSum exp = this;
+        for (int i = 0; i < num; i++) {
+            exp = exp.addTo(e);
+        }
+        return exp;
     }
 
     @Override

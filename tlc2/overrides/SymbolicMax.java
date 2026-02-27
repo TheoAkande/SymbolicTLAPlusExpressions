@@ -28,6 +28,8 @@ public class SymbolicMax extends SymbolicExpression {
     // setup a new symbolic max for le
     private void setup() {
         try {
+            this.atoms.addAll(this.v1.atoms);
+            this.atoms.addAll(this.v2.atoms);
             final Set<SymbolicExpression> le = this.getAllLE();
             final Set<SymbolicExpression> ge = this.getAllGE();
             le.add(SymbolicEmpty.getInstance());

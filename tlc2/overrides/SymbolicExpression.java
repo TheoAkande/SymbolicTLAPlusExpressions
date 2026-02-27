@@ -131,7 +131,7 @@ public abstract class SymbolicExpression extends Value {
             SymbolicSum sum1 = (SymbolicSum) s1;
             final SymbolicSum sum2 = (SymbolicSum) s2;
             for (final Map.Entry<SymbolicExpression, Integer> entry : sum2.getBag().entrySet()) {
-                sum1 = sum1.addTo(entry.getKey(), entry.getValue()); // TODO: Is this better for LE than constructing it all at once?
+                sum1 = sum1.addTo(entry.getKey(), entry.getValue());
             }
             return sum1;
         }
@@ -147,7 +147,7 @@ public abstract class SymbolicExpression extends Value {
         final Map<SymbolicExpression, Integer> newBag = new HashMap<>();
         newBag.put(s1, 1);
         newBag.put(s2, newBag.getOrDefault(s2, 0) + 1);
-        return new SymbolicSum(newBag);
+        return SymbolicSum.generate(newBag);
     }
 
     // e1 x n
@@ -166,19 +166,19 @@ public abstract class SymbolicExpression extends Value {
         }
 
         if (factor == 1) {
-            return (Value) s.deepCopy();
+            return s;
         }
 
         if (s.isSumExpr()) {
             final SymbolicSum sum = (SymbolicSum) s;
-            final Map<SymbolicExpression, Integer> newBag = new HashMap<>();
+            SymbolicSum ret = sum;
             for (final Map.Entry<SymbolicExpression, Integer> entry : sum.getBag().entrySet()) {
-                newBag.put(entry.getKey(), entry.getValue() * factor);
+                ret = ret.addTo(entry.getKey(), entry.getValue() * (factor - 1));
             }
-            return new SymbolicSum(newBag);
+            return ret;
         }
 
-        return new SymbolicSum(Map.of(s, factor));
+        return SymbolicSum.generate(Map.of(s, 1)).addTo(s, factor - 1);
     }
 
     // max(e1, e2)
@@ -187,61 +187,8 @@ public abstract class SymbolicExpression extends Value {
         return (Value) e1.deepCopy(); // TODO: Implement correctly
     }
 
-    @TLAPlusOperator(identifier = "SetLTRelation", module = "SymbolicExpression", warn = false)
-    public static Value setLTRelation(final Value lessThanRelation) {
-        while (SymbolicExpression.ltStarted.get()) {
-            if (SymbolicExpression.ltReady.get()) {
-                return BoolValue.ValTrue;
-            }
-            Thread.onSpinWait();
-        }
-
-        if (!SymbolicExpression.ltStarted.compareAndSet(false, true)) {
-            return BoolValue.ValTrue;
-        }
-
-        if (!(lessThanRelation instanceof EnumerableValue)) {
-            Assert.fail("LTRelation is not an enumerable val?");
-            return BoolValue.ValFalse;
-        }
-        final EnumerableValue ltRelation = (EnumerableValue) lessThanRelation;
-        final Set<Value> domain = new HashSet<>(ltRelation.elements().all());
-        final Set<SymbolicExpression> atoms = new HashSet<>();
-        for (final Value e : domain) {
-            if (!(e instanceof TupleValue)) {
-                Assert.fail("Domain items are not tuples");
-                return BoolValue.ValFalse;
-            }
-            final SymbolicExpression less = (SymbolicExpression)((TupleValue)e).apply(IntValue.gen(1), EvalControl.KeepLazy);
-            final SymbolicExpression more = (SymbolicExpression)((TupleValue)e).apply(IntValue.gen(2), EvalControl.KeepLazy);
-            atoms.add(less);
-            atoms.add(more);
-            final Set<SymbolicExpression> ltForA = SymbolicExpression.ltRelation.computeIfAbsent(less, x -> new HashSet<>());
-            ltForA.add(more);
-        }
-
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (final SymbolicExpression a : atoms) {
-                final Set<SymbolicExpression> ltForA = SymbolicExpression.ltRelation.computeIfAbsent(a, x -> new HashSet<>());
-                final int sizeBefore = ltForA.size();
-                for (final Value aPrime : ltForA) {
-                    ltForA.addAll(SymbolicExpression.ltRelation.get(aPrime));
-                }
-                changed |= sizeBefore != ltForA.size();
-            }
-        }
-
-        SymbolicExpression.ltReady.set(true);
-
-        return BoolValue.ValTrue;
-    }
-
-    private static AtomicBoolean ltStarted;
-    private static AtomicBoolean ltReady;
-    protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> ltRelation = new ConcurrentHashMap<>();
-    protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
+    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> ltRelation = new ConcurrentHashMap<>();
+    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
     // In order to do (more) efficient LE checks, we construct the relation for each expression as it is created.
     // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> leRelation = new ConcurrentHashMap<>();
@@ -260,7 +207,7 @@ public abstract class SymbolicExpression extends Value {
         return SymbolicExpression.canonicalMap.keySet();
     }
 
-    private static boolean le(final SymbolicExpression e1, final SymbolicExpression e2) {
+    protected static boolean le(final SymbolicExpression e1, final SymbolicExpression e2) {
         if (e1.isEmptyExpr()) {
             return true;
         }
@@ -324,6 +271,7 @@ public abstract class SymbolicExpression extends Value {
     private boolean zeroFingerprintSet = false;
     private final Set<SymbolicExpression> le = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e <= this 
     private final Set<SymbolicExpression> ge = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e >= this
+    protected final Set<SymbolicAtom> atoms = new HashSet<>();
 
     protected abstract Map<SymbolicExpression, Integer> getValue();
     protected boolean isEmptyExpr() {return false;}
@@ -461,7 +409,7 @@ public abstract class SymbolicExpression extends Value {
     // We override fingerPrint rather than hashCode for TLC values
     protected long getZeroFingerprint() {
         if (!this.zeroFingerprintSet) {
-            this.zeroFingerprintCache = this.fingerPrint(FP64.Zero);
+            this.zeroFingerprintCache = this.getFullFingerprint(FP64.Zero);
             this.zeroFingerprintSet = true;
         }
         return this.zeroFingerprintCache;
