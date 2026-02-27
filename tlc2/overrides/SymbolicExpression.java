@@ -184,15 +184,34 @@ public abstract class SymbolicExpression extends Value {
     // max(e1, e2)
     @TLAPlusOperator(identifier = "Max", module = "SymbolicExpression", warn = false)
     public static Value max(final Value e1, final Value e2) {
-        return (Value) e1.deepCopy(); // TODO: Implement correctly
+        if (!(e1 instanceof SymbolicExpression && e2 instanceof SymbolicExpression)) {
+            Assert.fail("Attempted to apply max between with non-symbolic expressions");
+            return SymbolicEmpty.getInstance();
+        }
+
+        final SymbolicExpression s1 = (SymbolicExpression) e1;
+        final SymbolicExpression s2 = (SymbolicExpression) e2;
+
+        if (SymbolicExpression.le(s1, s2)) {
+            return s2;
+        }
+        if (SymbolicExpression.le(s2, s1)) {
+            return s1;
+        }
+
+        if (s1.isSumExpr() && s2.isSumExpr()) {
+            final SymbolicSum[] split = SymbolicSum.split((SymbolicSum)s1, (SymbolicSum)s2);
+            final SymbolicMax m = SymbolicMax.generate(split[1].extract(), split[2].extract());
+            if (split[0].getCardinality() == 0) {
+                return m;
+            }
+            return split[0].addTo(m);
+        }
+
+        return SymbolicMax.generate(s1, s2);
     }
 
-    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> ltRelation = new ConcurrentHashMap<>();
-    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
-    // In order to do (more) efficient LE checks, we construct the relation for each expression as it is created.
-    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> leRelation = new ConcurrentHashMap<>();
-    // protected static ConcurrentHashMap<SymbolicExpression, Set<SymbolicExpression>> gtRelation = new ConcurrentHashMap<>();
     private static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
 
     protected static void addExpression(final SymbolicExpression e) {
@@ -212,56 +231,7 @@ public abstract class SymbolicExpression extends Value {
             return true;
         }
 
-        return e2.le.contains(e1);
-
-        // if (e1.isAtom() & e2.isAtom()) {
-        //     return SymbolicExpression.atomicCompare(e1, e2, ltRelation) < 1;
-        // }
-
-        // if (e1.isMaxExpr() & e2.isMaxExpr()) {
-        //     final SymbolicMax m1 = (SymbolicMax) e1;
-        //     final SymbolicMax m2 = (SymbolicMax) e2;
-        //     return (le(m1.first(), m2.first(), ltRelation) && le(m1.second(), m2.second(), ltRelation)) ||
-        //         (le(m1.first(), m2.second(), ltRelation) && le(m1.second(), m2.second(), ltRelation)) ||
-        //         (le(m1.first(), m2.first(), ltRelation) && le(m1.second(), m2.first(), ltRelation)) ||
-        //         (le(m1.first(), m2.second(), ltRelation) && le(m1.second(), m2.first(), ltRelation));
-        // }
-
-        // if (e2.isMaxExpr()) {
-        //     final SymbolicMax m2 = (SymbolicMax) e2;
-        //     return le(e1, m2.first(), ltRelation) || le(e1, m2.second(), ltRelation);
-        // }
-
-        // if (e1.isMaxExpr()) {
-        //     final SymbolicMax m1 = (SymbolicMax) e1;
-        //     return le(m1.first(), e2, ltRelation) || le(m1.second(), e2, ltRelation);
-        // }
-
-        // if (e1.isSumExpr() & e2.isSumExpr()) {
-        //     return SymbolicExpression.subset((SymbolicSum)e1.deepCopy(), (SymbolicSum)e2.deepCopy(), ltRelation);
-        // }
-
-        // if (e1.isSumExpr() & e2.isAtom()) {
-        //     // TODO: Finish
-        //     return false;
-        // }
-
-        // if (e1.isSumExpr() & e2.isMaxExpr()) {
-        //     // TODO: Finish
-        //     return false;
-        // }
-
-        // if (e1.isAtom() & e2.isSumExpr()) {
-        //     // TODO: Finish
-        //     return false; 
-        // }
-
-        // if (e1.isMaxExpr() & e2.isSumExpr()) {
-        //     // TODO: Finish
-        //     return false;
-        // }
-
-        // return false;
+        return e2.le.contains(e1) || e1.ge.contains(e2);
     }
 
     /* --------------------- Value --------------------- */

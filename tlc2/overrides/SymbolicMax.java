@@ -127,9 +127,6 @@ public class SymbolicMax extends SymbolicExpression {
 
     @Override
     protected long getFullFingerprint(long fp) {
-        if (fp == FP64.Zero) {
-            return this.getZeroFingerprint();
-        }
         fp = FP64.Extend(fp, "MAX");
         fp = FP64.Extend(fp, v1.fingerPrint(FP64.Zero));
         return FP64.Extend(fp, v2.fingerPrint(FP64.Zero));

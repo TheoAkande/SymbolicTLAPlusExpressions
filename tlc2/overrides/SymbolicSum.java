@@ -10,6 +10,36 @@ import tlc2.util.FP64;
 import tlc2.value.IValue;
 
 public class SymbolicSum extends SymbolicExpression {
+
+    // 0 -> common, 1 -> just s1, 2 -> just s2
+    protected static SymbolicSum[] split(final SymbolicSum s1, final SymbolicSum s2) {
+        SymbolicSum base =  SymbolicSum.generate(new HashMap<>());
+        SymbolicSum justS1 = SymbolicSum.generate(new HashMap<>());
+        SymbolicSum justS2 = SymbolicSum.generate(new HashMap<>());
+        
+        for (final SymbolicExpression e : s1.bag.keySet()) {
+            if (s2.bag.containsKey(e)) {
+                final int v1 = s1.bag.get(e);
+                final int v2 = s2.bag.get(e);
+                base = base.addTo(e, Math.min(v1, v2));
+                if (v1 > v2) {
+                    justS1 = justS1.addTo(e, v1 - v2);
+                } else if (v2 > v1) {
+                    justS2 = justS2.addTo(e, v2 - v1);
+                }
+            } else {
+                justS1 = justS1.addTo(e, s1.bag.get(e));
+            }
+        }
+        for (final SymbolicExpression e : s2.bag.keySet()) {
+            if (!s1.bag.containsKey(e)) {
+                justS2 = justS2.addTo(e, s2.bag.get(e));
+            }
+        }
+
+        return new SymbolicSum[]{base, justS1, justS2};
+    }
+
     private static SymbolicSum combine(final SymbolicSum base, final SymbolicExpression other, final int mult) {
         if (other.isEmptyExpr()) {
             return base;
@@ -46,13 +76,7 @@ public class SymbolicSum extends SymbolicExpression {
         }
         final Set<SymbolicExpression> ret = new HashSet<>();
         for (final SymbolicSum s : flat) {
-            if (s.cardinality == 0) {
-                ret.add(SymbolicEmpty.getInstance());
-            } else if (s.cardinality == 1) {
-                ret.add((SymbolicExpression) s.bag.keySet().toArray()[0]);
-            } else {
-                ret.add(s);
-            }
+            ret.add(s.extract());
         }
 
         return ret;
@@ -205,6 +229,16 @@ public class SymbolicSum extends SymbolicExpression {
             return oneDifference;
         }
         return false;
+    }
+
+    protected SymbolicExpression extract() {
+        if (this.cardinality == 0) {
+            return SymbolicEmpty.getInstance();
+        }
+        if (this.cardinality == 1) {
+            return (SymbolicExpression) this.bag.keySet().toArray()[0];
+        }
+        return this;
     }
 
     protected Map<SymbolicExpression, Integer> getBag() {
