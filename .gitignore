@@ -31,4 +31,5 @@ states/*
 .vscode/*
 
 testing/*
+*.bin
 
