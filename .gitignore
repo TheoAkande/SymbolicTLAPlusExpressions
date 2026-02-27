@@ -33,3 +33,4 @@ states/*
 testing/*
 *.bin
 
+*TTrace*.tla
