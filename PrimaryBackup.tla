@@ -116,7 +116,6 @@ Next ==
     \/ Done
 
 LBound ==
-    LE(Add(D, Add(Expr("Gamma"), Expr("Alpha"))), Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
-    \* LE(TauN[L], Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
+    LE(TauN[L], Add(Max(Expr("Alpha"), Expr("Beta")), Add(D, Mult(Expr("Gamma"), 2))))
 
 =====================================================================
