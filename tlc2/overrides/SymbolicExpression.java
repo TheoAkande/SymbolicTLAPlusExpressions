@@ -49,42 +49,7 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s1 = (SymbolicExpression) e1;
         final SymbolicExpression s2 = (SymbolicExpression) e2;
 
-        if (!(s1.isSumExpr() && s2.isSumExpr())) {
-            return s1.equals(s2) ? BoolValue.ValTrue : BoolValue.ValFalse;
-        }
-
-        final SymbolicSum sum1 = (SymbolicSum) s1;
-        final SymbolicSum sum2 = (SymbolicSum) s2;
-
-        final Map<SymbolicExpression, Integer> s1Bag = sum1.getBag();
-        final Map<SymbolicExpression, Integer> s2Bag = sum2.getBag();
-
-        final Set<SymbolicExpression> s1KeySet = s1Bag.keySet();
-        final Set<SymbolicExpression> s2KeySet = s2Bag.keySet();
-
-        if (sum1.getCardinality() != sum2.getCardinality() || s1KeySet.size() != s2KeySet.size()) {
-            return BoolValue.ValFalse;
-        }
-
-        final BitSet keysSeen = new BitSet(s1KeySet.size());
-
-        for (final SymbolicExpression checkExp1 : s1KeySet) {
-            int index = 0;
-            boolean valid = false;
-            // Assuming we iterate through keyset in the same order each time (check this)
-            for (final SymbolicExpression checkExp2 : s2KeySet) {
-                if (!keysSeen.get(index) && checkExp1.equals(checkExp2)) {
-                    keysSeen.set(index);
-                    valid = true;
-                    break;
-                }
-                index++;
-            }
-            if (!valid) {
-                return BoolValue.ValFalse;
-            }
-        }
-        return BoolValue.ValTrue;
+        return s1.equals(s2) ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
     // e1 <= e2
