@@ -19,12 +19,17 @@ public class SymbolicAtom extends SymbolicExpression {
 
     public static SymbolicAtom generate(final Value val) {
         final SymbolicAtom newAtom = new SymbolicAtom(val);
-        final SymbolicExpression oldAtom = SymbolicExpression.get(newAtom);
-        if (oldAtom != null) {
-            return (SymbolicAtom) oldAtom;
+        try {
+            SymbolicExpression.acquireGenerationLock();
+            final SymbolicExpression oldAtom = SymbolicExpression.get(newAtom);
+            if (oldAtom != null) {
+                return (SymbolicAtom) oldAtom;
+            }
+            newAtom.setup();
+            return newAtom;
+        } finally {
+            SymbolicExpression.releaseGenerationLock();
         }
-        newAtom.setup();
-        return newAtom;
     } 
 
     // setup a new symbolic atom for le
@@ -97,7 +102,7 @@ public class SymbolicAtom extends SymbolicExpression {
     public boolean equals(final Object other) {
         try {
             if (other instanceof SymbolicAtom) {
-                ((SymbolicAtom)other).val.equals(this.val);
+                return ((SymbolicAtom)other).val.equals(this.val);
             }
             return false;
         } catch (final RuntimeException | OutOfMemoryError e) {

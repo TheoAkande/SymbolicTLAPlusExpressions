@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
@@ -96,28 +97,6 @@ public abstract class SymbolicExpression extends Value {
 
         final SymbolicExpression exp1 = (SymbolicExpression) e1;
         final SymbolicExpression exp2 = (SymbolicExpression) e2;
-
-        System.out.println("Evaluating " + exp1.toString() + " <= " + exp2.toString());
-        System.out.println(exp1.toString() + " <= :");
-        for (final SymbolicExpression e : exp1.ge) {
-            System.out.println(e);
-        }
-        System.out.println("--------------------------");
-        System.out.println(exp1.toString() + " >= :");
-        for (final SymbolicExpression e : exp1.le) {
-            System.out.println(e);
-        }
-        System.out.println("--------------------------");
-        System.out.println(exp2.toString() + " <= :");
-        for (final SymbolicExpression e : exp2.ge) {
-            System.out.println(e);
-        }
-        System.out.println("--------------------------");
-        System.out.println(exp2.toString() + " >= :");
-        for (final SymbolicExpression e : exp2.le) {
-            System.out.println(e);
-        }
-        System.out.println("--------------------------");
 
         return SymbolicExpression.le(exp1, exp2) ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
@@ -224,6 +203,15 @@ public abstract class SymbolicExpression extends Value {
 
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
     protected static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
+    private static final ReentrantLock generationLock = new ReentrantLock();
+
+    protected static void acquireGenerationLock() {
+        SymbolicExpression.generationLock.lock();
+    }
+
+    protected static void releaseGenerationLock() {
+        SymbolicExpression.generationLock.unlock();
+    }
 
     protected static void addExpression(final SymbolicExpression e) {
         SymbolicExpression.canonicalMap.put(e, e);

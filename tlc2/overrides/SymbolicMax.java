@@ -17,12 +17,17 @@ public class SymbolicMax extends SymbolicExpression {
 
     public static SymbolicMax generate(final IValue v1, final IValue v2) {
         final SymbolicMax newMax = new SymbolicMax(v1, v2);
-        final SymbolicExpression oldMax = SymbolicExpression.get(newMax);
-        if (oldMax != null) {
-            return (SymbolicMax) oldMax;
+        try {
+            SymbolicExpression.acquireGenerationLock();
+            final SymbolicExpression oldMax = SymbolicExpression.get(newMax);
+            if (oldMax != null) {
+                return (SymbolicMax) oldMax;
+            }
+            newMax.setup();
+            return newMax;
+        } finally {
+            SymbolicExpression.releaseGenerationLock();
         }
-        newMax.setup();
-        return newMax;
     } 
 
     // setup a new symbolic max for le

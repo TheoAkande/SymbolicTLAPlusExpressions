@@ -89,12 +89,17 @@ public class SymbolicSum extends SymbolicExpression {
     // Note: addTo is generally better to use (hence private)
     protected static SymbolicSum generate(final Map<SymbolicExpression, Integer> bag) {
         final SymbolicSum newSum = new SymbolicSum(bag);
-        final SymbolicExpression oldSum = SymbolicExpression.get(newSum);
-        if (oldSum != null) {
-            return (SymbolicSum) oldSum;
+        try {
+            SymbolicExpression.acquireGenerationLock();
+            final SymbolicExpression oldSum = SymbolicExpression.get(newSum);
+            if (oldSum != null) {
+                return (SymbolicSum) oldSum;
+            }
+            newSum.setup();
+            return newSum;
+        } finally {
+            SymbolicExpression.releaseGenerationLock();
         }
-        newSum.setup();
-        return newSum;
     } 
 
     // setup a new symbolic sum for le
@@ -265,7 +270,6 @@ public class SymbolicSum extends SymbolicExpression {
                 }
                 index++;
             }
-            sb.append(" : (" + this.cardinality + ")");
             return sb;
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
