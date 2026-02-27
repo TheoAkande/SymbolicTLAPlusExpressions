@@ -90,10 +90,6 @@ QueueMessage ==
     /\ Sigma[L] = "Listen"
     /\ \lnot ENABLED ActiveAction
     /\ \E m \in Messages : m \notin Processed
-    (* The following bound can be put in place to prevent indefinite queueing *)
-    \* /\ \A m \in (Messages \ Processed) :
-    \*     \E n \in 1..10 : 
-    \*         T!LE(TauN[L], T!Add(TauM[m], T!Mult(QUEUEING, n)))
     /\ TauM' = [
         m \in Messages |-> 
             IF m \in Processed \/ LE(TauN[L], TauM[m]) THEN TauM[m]
