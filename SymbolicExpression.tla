@@ -1,22 +1,26 @@
 ------------------------ MODULE SymbolicExpression ------------------------
 (* 
-    This module does not exactly work because of the way that TLC evaluates 
-    sets and assigns types. Two possible workarounds:
-    1. Define custom java class for this module to sidestep TLC
-    2. Use expression id map which is not really convenient
+    Note that this module SHOULD provide a valid TLA+ specification for SymbolicExpression behaviour, 
+    but does not reflect the TLC behaviour due to TLC limitations. Ensure that the java override
+    is used when running this module with TLC. Do not attempt to perform operations on the structure
+    of expressions as they differ in structure in TLC (represented by their own Value types rather than
+    existing TLC/TLA+ Values)
+
+    The public API of operators/definitions exposed by this module are as follows:
+    - EMPTY
+    - Expr(_)     : String      -> Expr
+    - Equal(_, _) : Expr x Expr -> Bool
+    - LE(_, _)    : Expr x Expr -> Bool
+    - Mult(_, _)  : Expr x Expr -> Expr
+    - Add(_, _)   : Expr x Expr -> Expr
+    - Max(_, _)   : Expr x Expr -> Expr
 *)
-EXTENDS Naturals, Bags, Sequences, FiniteSets
+EXTENDS Naturals, Bags, Sequences, FiniteSets, Integers
 
-LOCAL AtomLE(a, b) ==
-    FALSE
-    \* LET
-    \*     atoms == DOMAIN(LTRelation) \cup {LTRelation[x] : x \in DOMAIN LTRelation}
-    \* IN 
-    \*     AtomLEHelp(a, b, atoms, LTRelation)
-
-(* EXPR == EMPTY | atom | <<EXPR, EXPR>> | [EXPR -> Nat] *)
+(* EXPR == EMPTY | atom | <<EXPR, EXPR>> | [EXPR -> Nat]  *)
+(*                        (max of exprs)   (sum of exprs) *)
 EMPTY == [type |-> "empty", val |-> {}]
-NonEmptyBase == {"atom", "max"}
+LOCAL NonEmptyBase == {"atom", "max"}
 
 LOCAL MakeBag(a) == [x \in {a} |-> 1]
 LOCAL ExprToBag(a) ==
@@ -24,73 +28,19 @@ LOCAL ExprToBag(a) ==
         [] a.type \in NonEmptyBase -> MakeBag(a)
         [] a.type = "sum" -> a.val
 
-(* For the java override *)
-SetAtomLT(LTRelation) ==
-    TRUE
-
-(* Atom to Expression *)
+(* String to Expression *)
 Expr(a) == [type |-> "atom", val |-> a]
-(* Bag to Expression *)
-Sum(expr) == [type |-> "sum", val |-> expr]
-(* Two Expressions to max of them *)
-MakeMax(e1, e2) ==  [type |-> "max", val |-> <<e1, e2>>]
-(* Bag to Expression *)
-ToExpr(bag) ==
-    IF bag = EmptyBag THEN EMPTY
-    ELSE IF BagCardinality(bag) = 1 THEN 
-        CHOOSE v \in (DOMAIN bag) : TRUE (* Since only one item *)
-    ELSE Sum(bag)
 
-RECURSIVE LE(_, _), Subset(_, _)
-LE(a, b) ==
-    CASE a.type = "empty" -> TRUE
-        [] b.type = "empty" -> 
-            a.type = "empty"
-        [] a.type = "atom" /\ b.type = "atom" -> 
-            a.val = b.val \/ AtomLE(a.val, b.val)
-        [] a.type = "max" /\ b.type = "max" -> 
-            \E i \in 1..2 : \E j \in 1..2 :
-                /\ LE(a.val[1], b.val[i])
-                /\ LE(a.val[2], b.val[j])
-        [] a.type # "max" /\ b.type = "max" ->
-            \/ LE(a, b.val[1])
-            \/ LE(a, b.val[2])
-        [] a.type = "max" /\ b.type # "max" ->
-            /\ LE(a.val[1], b)
-            /\ LE(a.val[2], b)
-        [] a.type = "sum" /\ b.type = "sum" ->
-            Subset(a.val, b.val)
-        [] a.type = "sum" /\ b.type \in NonEmptyBase ->
-            LE(a, Sum(MakeBag(b)))
-        [] a.type \in NonEmptyBase /\ b.type = "sum" ->
-            Subset(MakeBag(a), b.val)
+LOCAL Sum(expr) == [type |-> "sum", val |-> expr]
 
-(* 
-    A helper for LE; takes in two bags of symbolic expressions and is true if 
-    a is a subset of b.
-    Note that we can't use typical bag subseteq because we need to use the LE
-    relation
-*)
-LOCAL Subset(a, b) ==
-    IF a = EmptyBag THEN TRUE
-    ELSE 
-        LET 
-            x == CHOOSE v \in DOMAIN a : TRUE
-            n == CopiesIn(x, a)
-        IN 
-            \E y \in DOMAIN b : LET m == CopiesIn(y, b) IN
-                /\ n <= m
-                /\ LE(x, y)
-                /\ Subset(a (-) [v \in {x} |-> n], b (-) [v \in {y} |-> n])
-
-
+(* Note that there is no inherent evaluation order for this case statement *)
 RECURSIVE Equal(_, _)
 Equal(a, b) ==
     CASE a.type = "empty" ->
-        \/ b.type = "empty" 
-        \/
-            /\ b.type = "sum" 
-            /\ b.val = EmptyBag
+            \/ b.type = "empty" 
+            \/
+                /\ b.type = "sum" 
+                /\ b.val = EmptyBag
         [] b.type = "empty" -> 
             \/ a.type = "empty" 
             \/ 
@@ -121,11 +71,31 @@ Equal(a, b) ==
         [] a.type # b.type /\ a.type # "empty" /\ b.type # "empty" -> 
             FALSE
 
-(* 
-    Note that the use of this SHOULD enforce that a bag never has two items
-    a, b such that a and b are syntactically different but semantically the 
-    same.
-*)
+RECURSIVE LE(_, _), BagLE(_, _)
+LE(a, b) ==
+    CASE a.type = "empty" -> TRUE
+        [] b.type = "empty" -> 
+            a.type = "empty"
+        [] a.type = "atom" /\ b.type = "atom" -> 
+            a.val = b.val
+        [] a.type = "max" /\ b.type = "max" -> 
+            \E j \in 1..2 : \A i \in 1..2 :
+                /\ LE(a.val[i], b.val[j])
+        [] a.type # "max" /\ b.type = "max" ->
+            \/ LE(a, b.val[1])
+            \/ LE(a, b.val[2])
+        [] a.type = "max" /\ b.type # "max" ->
+            /\ LE(a.val[1], b)
+            /\ LE(a.val[2], b)
+        [] a.type = "sum" /\ b.type = "sum" ->
+            BagLE(a.val, b.val)
+        [] a.type = "sum" /\ b.type \in NonEmptyBase ->
+            BagLE(a.val, MakeBag(b))
+        [] a.type \in NonEmptyBase /\ b.type = "sum" ->
+            BagLE(MakeBag(a), b.val)
+
+LOCAL Min(a, b) == IF a < b THEN a ELSE b
+
 LOCAL BagAdd(a, b) ==
     [
         e \in (DOMAIN a) \cup (DOMAIN b) |->
@@ -182,6 +152,27 @@ LOCAL CappedBagSub(a, b) ==
     IN
         Filter(sub)
 
+LOCAL FilterBag(a, type) ==
+    [
+        v \in {x \in DOMAIN a : x.type = type} |-> a[v]
+    ]
+
+Mult(a, n) ==
+    IF n = 0 \/ a.type = "empty" THEN EMPTY
+    ELSE
+        IF a.type \in NonEmptyBase THEN Sum([x \in {a} |-> n])
+        ELSE Sum([expr \in BagToSet(a.val) |-> a[expr] * n])
+
+RECURSIVE BagToSeq(_)
+LOCAL BagToSeq(a) ==
+    IF DOMAIN a = {} THEN <<>>
+    ELSE LET v == CHOOSE x : x \in DOMAIN a IN 
+        Append(Mult(v, a[v]), BagToSeq([
+            p \in (DOMAIN a) \ v |-> a[p]
+        ]))
+
+LOCAL Bit(i, j) ==
+  (i \div 2^j) % 2
 
 Add(a, b) ==
     CASE a.type = "empty" -> b
@@ -195,11 +186,51 @@ Add(a, b) ==
         [] a.type \in NonEmptyBase /\ b.type \in NonEmptyBase -> 
             Sum(BagAdd(MakeBag(a), MakeBag(b)))
 
-Mult(a, n) ==
-    IF n = 0 \/ a.type = "empty" THEN EMPTY
-    ELSE
-        IF a.type \in NonEmptyBase THEN Sum([x \in {a} |-> n])
-        ELSE Sum([expr \in BagToSet(a.val) |-> a[expr] * n])
+(* This does not need to be fast (tournament) since it is a placeholder anyway *)
+RECURSIVE SeqToSum(_)
+LOCAL SeqToSum(seq) ==
+    IF seq = <<>> THEN EMPTY
+    ELSE Add(Head(seq), SeqToSum(Tail(seq)))
+
+(* 
+    A helper for LE; takes in two bags of symbolic expressions and is true if 
+    bag a represents a sum le bag b
+*)
+LOCAL BagLE(a, b) ==
+    IF a = EmptyBag THEN TRUE
+    ELSE 
+        LET 
+            aSubB == CappedBagSub(a, b)
+            bSubA == CappedBagSub(b, a)
+            aAtoms == Sum(FilterBag(aSubB, "atom"))
+            bAtoms == Sum(FilterBag(bSubA, "atom"))
+            aMaxs == BagToSeq(FilterBag(aSubB, "max"))
+            bMaxs == BagToSeq(FilterBag(bSubA, "max"))
+            aAllMaxCombos == {[
+                i \in 1..Len(aMaxs) |-> aMaxs[i].val[Bit(j, i) - 1]
+            ] : j \in 0..(2^(Len(aMaxs)) - 1)}
+            bAllMaxCombos == {[
+                i \in 1..Len(bMaxs) |-> bMaxs[i].val[Bit(j, i) - 1]
+            ] : j \in 0..(2^(Len(bMaxs)) - 1)}
+            aExprs == {
+                Add(aAtoms, SeqToSum(v)) : v \in aAllMaxCombos
+            }
+            bExprs == {
+                Add(bAtoms, SeqToSum(v)) : v \in bAllMaxCombos
+            }
+        IN 
+            \A less \in aExprs : 
+                \E more \in bExprs :
+                    LE(less, more)
+
+(* Bag to Expression *)
+LOCAL ToExpr(bag) ==
+    IF bag = EmptyBag THEN EMPTY
+    ELSE IF BagCardinality(bag) = 1 THEN 
+        CHOOSE v \in (DOMAIN bag) : TRUE (* Since only one item *)
+    ELSE Sum(bag)
+
+LOCAL MakeMax(e1, e2) ==  [type |-> "max", val |-> <<e1, e2>>]
 
 RECURSIVE Max(_, _)
 Max(a, b) ==
@@ -221,6 +252,6 @@ Max(a, b) ==
             maxExpr == MakeMax(ToExpr(aLeft), ToExpr(bLeft))
         IN (* neither aLeft nor bLeft SHOULD be empty but common can *)
             IF common = EmptyBag THEN maxExpr
-            ELSE Sum([x \in {Sum(common), maxExpr} |-> 1]) (* faster than doing a BagAdd *)
+            ELSE Sum([x \in {Sum(common), maxExpr} |-> 1])
 
 =============================================================================

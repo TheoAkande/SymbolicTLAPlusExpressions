@@ -22,7 +22,6 @@ MsgB == "MsgB"
 VARIABLES TauM, TauN, Messages, Sigma, Processed
 
 Init ==
-    /\ SetAtomLT(Ordering)
     /\ Messages = {}
     /\ Sigma = [n \in IDs |-> "Initial"]
     /\ TauN = [n \in IDs |-> EMPTY]

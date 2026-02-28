@@ -1,6 +1,5 @@
 package tlc2.overrides;
 
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
