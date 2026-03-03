@@ -198,8 +198,6 @@ public abstract class SymbolicExpression extends Value {
     }
 
     /* --------------------- Value --------------------- */
-    // TODO: Override regular toStrings
-
     private long zeroFingerprintCache;
     private boolean zeroFingerprintSet = false;
     private final Set<SymbolicExpression> le = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e <= this 
