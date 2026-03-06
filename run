@@ -1,1 +1,1 @@
-java -cp ".;./lib/tla2tools.jar" tlc2.TLC -config PrimaryBackup.cfg PrimaryBackup.tla
+java -XX:+UseParallelGC -cp ".;./lib/tla2tools.jar" tlc2.TLC -config PrimaryBackup.cfg PrimaryBackup.tla

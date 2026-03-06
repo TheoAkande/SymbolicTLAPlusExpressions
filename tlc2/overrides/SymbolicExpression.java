@@ -320,13 +320,13 @@ public abstract class SymbolicExpression extends Value {
 
     private static void compareSumMax(final SymbolicSum s, final SymbolicMax m) {
         // s < m
-        if (le(s, m.first()) == TRUE && le(s, m.second()) == TRUE) {
+        if (le(s, m.first()) == TRUE || le(s, m.second()) == TRUE) {
             s.thisLessThan.put(m, TRUE);
             m.thisLessThan.put(s, FALSE);
             return;
         }
         // m < s
-        if (le(m.first(), s) == TRUE || le(m.second(), s) == TRUE) {
+        if (le(m.first(), s) == TRUE && le(m.second(), s) == TRUE) {
             s.thisLessThan.put(m, FALSE);
             m.thisLessThan.put(s, TRUE);
             return;

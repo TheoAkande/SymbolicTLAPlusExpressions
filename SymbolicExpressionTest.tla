@@ -48,8 +48,8 @@ ASSUME Transitivity
 Congruence == \A x \in Expressions : \A y \in Expressions : \A z \in Expressions :
     LE(x, y) => (
         /\ LE(Add(x, z), Add(y, z))
-        \* /\ LE(Max(x, z), Max(y, z))                  TODO: This fails because we don't check strong enough for max (when checking Max(a, b) <= x, need to check 'a <= x ASSUMING a > b' and vice versa, not just 'a <= x' and vice versa)
-        \* /\ \A n \in Ns : LE(Mult(x, n), Mult(y, n))  TODO: This fails normally and passes when printing out expressions? find out why    
+        /\ LE(Max(x, z), Max(y, z))
+        /\ \A n \in Ns : LE(Mult(x, n), Mult(y, n))
     )
 ASSUME Congruence
 
@@ -60,7 +60,7 @@ ASSUME Commutativity
 
 Associativity == \A x \in Expressions : \A y \in Expressions : \A z \in Expressions :
     /\ Equal(Add(Add(x, y), z), Add(x, Add(y, z)))
-    \* /\ Equal(Max(Max(x, y), z), Max(x, Max(y, z)))   TODO: This doesn't hold; should it?
+    \* /\ Equal(Max(Max(x, y), z), Max(x, Max(y, z)))   \* TODO: This doesn't hold; should it
 ASSUME Associativity
 
 Idempotency == \A x \in Expressions :

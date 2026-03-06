@@ -1,1 +1,1 @@
-java -cp ".;./lib/tla2tools.jar" tlc2.TLC -config SymbolicExpressionTest.cfg SymbolicExpressionTest.tla
+java -XX:+UseParallelGC -cp ".;./lib/tla2tools.jar" tlc2.TLC -config SymbolicExpressionTest.cfg SymbolicExpressionTest.tla
