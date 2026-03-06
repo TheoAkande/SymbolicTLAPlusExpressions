@@ -19,7 +19,7 @@ import util.Assert;
 
 /* 
     TODO: 
-    - Fix the hanging
+    - 
 */ 
 
 public abstract class SymbolicExpression extends Value {
@@ -48,8 +48,6 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s1 = (SymbolicExpression) e1;
         final SymbolicExpression s2 = (SymbolicExpression) e2;
 
-        // System.out.println(e1.toString() + " = " + e2.toString());
-        // System.out.println(e1.equals(e2));
         return s1.equals(s2) ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
@@ -64,8 +62,6 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression exp1 = (SymbolicExpression) e1;
         final SymbolicExpression exp2 = (SymbolicExpression) e2;
 
-        // System.out.println(exp1.toString() + " <= " + exp2.toString());
-        // System.out.println(SymbolicExpression.le(exp1, exp2));
         return SymbolicExpression.le(exp1, exp2) == TRUE ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
@@ -156,11 +152,6 @@ public abstract class SymbolicExpression extends Value {
         if (le(s2, s1) == TRUE) {
             return s1;
         }
-
-        // System.out.println("Max of ");
-        // System.out.println(s1);
-        // System.out.println(s2);
-        // System.out.println("----");
 
         if (s1.isSumExpr() && s2.isSumExpr()) {
             final SymbolicSum[] split = SymbolicSum.split((SymbolicSum)s1, (SymbolicSum)s2);
@@ -480,7 +471,7 @@ public abstract class SymbolicExpression extends Value {
 
     @Override
     public boolean isDefined() {
-        return true; // TODO: Check what this is used for
+        return true;
     }
 
     @Override
