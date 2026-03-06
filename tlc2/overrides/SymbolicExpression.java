@@ -62,7 +62,9 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression exp1 = (SymbolicExpression) e1;
         final SymbolicExpression exp2 = (SymbolicExpression) e2;
 
-        return SymbolicExpression.le(exp1, exp2) ? BoolValue.ValTrue : BoolValue.ValFalse;
+        // System.out.println(exp1.toString() + " <= " + exp2.toString());
+        // System.out.println(SymbolicExpression.le(exp1, exp2));
+        return SymbolicExpression.le(exp1, exp2) == TRUE ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
     // e1 + e2
@@ -146,10 +148,10 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s1 = (SymbolicExpression) e1;
         final SymbolicExpression s2 = (SymbolicExpression) e2;
 
-        if (SymbolicExpression.le(s1, s2)) {
+        if (SymbolicExpression.le(s1, s2) == TRUE) {
             return s2;
         }
-        if (SymbolicExpression.le(s2, s1)) {
+        if (SymbolicExpression.le(s2, s1) == TRUE) {
             return s1;
         }
 
@@ -166,19 +168,25 @@ public abstract class SymbolicExpression extends Value {
     }
 
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
-    protected static ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
+    protected static final ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
     private static final ReentrantLock generationLock = new ReentrantLock();
+    private static final int TRUE = 1;
+    private static final int FALSE = 0;
+    private static final int UNKNOWN = -1;
 
     protected static void acquireGenerationLock() {
-        SymbolicExpression.generationLock.lock();
+        generationLock.lock();
     }
 
     protected static void releaseGenerationLock() {
-        SymbolicExpression.generationLock.unlock();
+        generationLock.unlock();
     }
 
     protected static void addExpression(final SymbolicExpression e) {
-        SymbolicExpression.canonicalMap.put(e, e);
+        canonicalMap.put(e, e);
+        for (final SymbolicExpression o : canonicalMap.keySet()) {
+            if (o != e) compareExprs(e, o);
+        }
     }
 
     protected static SymbolicExpression get(final SymbolicExpression e) {
@@ -186,22 +194,238 @@ public abstract class SymbolicExpression extends Value {
     }
 
     protected static Set<SymbolicExpression> getAll() {
-        return SymbolicExpression.canonicalMap.keySet();
+        return canonicalMap.keySet();
     }
 
-    protected static boolean le(final SymbolicExpression e1, final SymbolicExpression e2) {
-        if (e1.isEmptyExpr()) {
-            return true;
+    protected static int le(final SymbolicExpression e1, final SymbolicExpression e2) {
+        if (e1.equals(e2)) {
+            return TRUE;
         }
 
-        return e2.le.contains(e1) || e1.ge.contains(e2);
+        compareExprs(e1, e2);
+        
+        return e1.thisLessThan.get(e2);
+    }
+
+    private static void compareAtomSum(final SymbolicAtom a, final SymbolicSum s) {
+        if (s.getCardinality() == 0) {
+            a.thisLessThan.put(s, FALSE);
+            s.thisLessThan.put(a, TRUE);
+            return;
+        }
+        if (s.atoms.contains(a)) {
+            a.thisLessThan.put(s, s.getCardinality() == 1 ? FALSE : TRUE);
+            s.thisLessThan.put(a, FALSE);
+            return;
+        } 
+
+        a.thisLessThan.put(s, UNKNOWN);
+        s.thisLessThan.put(a, UNKNOWN);
+    }
+
+    private static void compareAtomMax(final SymbolicAtom a, final SymbolicMax m) {
+        a.thisLessThan.put(m, m.atoms.contains(a) ? TRUE : UNKNOWN);
+        m.thisLessThan.put(a, m.atoms.contains(a) ? FALSE : UNKNOWN);
+    }
+
+    private static void compareSumSum(final SymbolicSum s1, final SymbolicSum s2) {
+        final SymbolicSum[] apart = SymbolicSum.split(s1, s2); // Extract out the common base
+
+        final SymbolicSum sum1 = apart[1];
+        final SymbolicSum sum2 = apart[2];
+
+        if (apart[0].getCardinality() > 0) {
+            s1.thisLessThan.put(s2, sum1.thisLessThan.get(sum2));
+            s2.thisLessThan.put(s1, sum2.thisLessThan.get(sum1));
+            return;
+        }
+
+        // s1 == sum1, s2 == sum2
+
+        final int s1c = s1.getCardinality();
+        final int s2c = s2.getCardinality();
+        if (s1c * s2c == 0) {
+            s1.thisLessThan.put(s2, s2c > s1c ? TRUE : FALSE);
+            s2.thisLessThan.put(s1, s1c > s2c ? TRUE : FALSE);
+            return;
+        }
+
+        boolean containsMax = false;
+        for (final SymbolicExpression e : s1.getBag().keySet()) {
+            containsMax |= e.isMaxExpr();
+        }
+        for (final SymbolicExpression e : s2.getBag().keySet()) {
+            containsMax |= e.isMaxExpr();
+        }
+        if (!containsMax) { // Incomparable atoms
+            s1.thisLessThan.put(s2, UNKNOWN); 
+            s2.thisLessThan.put(s1, UNKNOWN);
+            return;
+        }
+
+        final Set<SymbolicExpression> flat1 = sum1.flatten();
+        final Set<SymbolicExpression> flat2 = sum2.flatten();
+
+        // s1 < s2:
+        boolean less = true;
+        for (final SymbolicExpression e1 : flat1) { // For each in flat1
+            boolean found = false;
+            for (final SymbolicExpression e2 : flat2) { // Exists in flat2
+                if (le(e1, e2) == TRUE) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                less = false;
+                break;
+            }
+        }
+        if (less) {
+            s1.thisLessThan.put(s2, TRUE);
+            s2.thisLessThan.put(s1, FALSE);
+            return;
+        }
+
+        // s2 < s1:
+        less = true;
+        for (final SymbolicExpression e2 : flat2) { // For each in flat2
+            boolean found = false;
+            for (final SymbolicExpression e1 : flat1) { // Exists in flat1
+                if (le(e2, e1) == TRUE) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                less = false;
+                break;
+            }
+        }
+        if (less) {
+            s1.thisLessThan.put(s2, FALSE);
+            s2.thisLessThan.put(s1, TRUE);
+            return;
+        }
+
+        s1.thisLessThan.put(s2, UNKNOWN);
+        s2.thisLessThan.put(s1, UNKNOWN);
+    }
+
+    private static void compareSumMax(final SymbolicSum s, final SymbolicMax m) {
+        // s < m
+        if (le(s, m.first()) == TRUE && le(s, m.second()) == TRUE) {
+            s.thisLessThan.put(m, TRUE);
+            m.thisLessThan.put(s, FALSE);
+            return;
+        }
+        // m < s
+        if (le(m.first(), s) == TRUE || le(m.second(), s) == TRUE) {
+            s.thisLessThan.put(m, FALSE);
+            m.thisLessThan.put(s, TRUE);
+            return;
+        }
+
+        s.thisLessThan.put(m, UNKNOWN);
+        m.thisLessThan.put(s, UNKNOWN);
+    }
+
+    private static void compareMaxMax(final SymbolicMax m1, final SymbolicMax m2) {
+        // m1 < m2
+        if (
+            (le(m1.first(), m2.first()) == TRUE || le(m1.first(), m2.second()) == TRUE) &&
+            (le(m1.second(), m2.first()) == TRUE || le(m1.second(), m2.second()) == TRUE)
+        ) {
+            m1.thisLessThan.put(m2, TRUE);
+            m2.thisLessThan.put(m1, FALSE);
+            return;
+        }
+        // m2 < m1
+        if (
+            (le(m2.first(), m1.first()) == TRUE || le(m2.first(), m1.second()) == TRUE) &&
+            (le(m2.second(), m1.first()) == TRUE || le(m2.second(), m1.second()) == TRUE)
+        ) {
+            m1.thisLessThan.put(m2, FALSE);
+            m2.thisLessThan.put(m1, TRUE);
+            return;
+        }
+
+        m1.thisLessThan.put(m2, UNKNOWN);
+        m2.thisLessThan.put(m1, UNKNOWN);
+    }
+
+    private static synchronized void compareExprs(final SymbolicExpression e1, final SymbolicExpression e2) {
+        if (e1.thisLessThan.contains(e2)) {
+            return;
+        }
+
+        if (e1.equals(e2)) {
+            e1.thisLessThan.put(e2, FALSE);
+            e2.thisLessThan.put(e1, FALSE);
+            return;
+        }
+
+        if (e1.isEmptyExpr()) {
+            e1.thisLessThan.put(e2, TRUE);
+            e2.thisLessThan.put(e1, FALSE);
+            return;
+        }
+
+        if (e2.isEmptyExpr()) {
+            e2.thisLessThan.put(e1, TRUE);
+            e1.thisLessThan.put(e2, FALSE);
+            return;
+        }
+
+        if (e1.isAtomExpr() && e2.isAtomExpr()) {
+            e1.thisLessThan.put(e2, UNKNOWN);
+            e2.thisLessThan.put(e1, UNKNOWN);
+            return;
+        }
+
+        if (e1.isAtomExpr() && e2.isSumExpr()) {
+            compareAtomSum((SymbolicAtom) e1, (SymbolicSum) e2);
+            return;
+        }
+
+        if (e2.isAtomExpr() && e1.isSumExpr()) {
+            compareAtomSum((SymbolicAtom) e2, (SymbolicSum) e1);
+            return;
+        }
+
+        if (e1.isAtomExpr() && e2.isMaxExpr()) {
+            compareAtomMax((SymbolicAtom) e1, (SymbolicMax) e2);
+        }
+
+        if (e2.isAtomExpr() && e1.isMaxExpr()) {
+            compareAtomMax((SymbolicAtom) e2, (SymbolicMax) e1);
+        }
+
+        if (e1.isSumExpr() && e2.isSumExpr()) {
+            compareSumSum((SymbolicSum) e1, (SymbolicSum) e2);
+            return;
+        }
+
+        if (e1.isSumExpr() && e2.isMaxExpr()) {
+            compareSumMax((SymbolicSum) e1, (SymbolicMax) e2);
+            return;
+        }
+
+        if (e2.isSumExpr() && e1.isMaxExpr()) {
+            compareSumMax((SymbolicSum) e2, (SymbolicMax) e1);
+            return;
+        }
+
+        if (e1.isMaxExpr() && e2.isMaxExpr()) {
+            compareMaxMax((SymbolicMax) e1, (SymbolicMax) e2);
+            return;
+        }
     }
 
     /* --------------------- Value --------------------- */
     private long zeroFingerprintCache;
     private boolean zeroFingerprintSet = false;
-    private final Set<SymbolicExpression> le = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e <= this 
-    private final Set<SymbolicExpression> ge = ConcurrentHashMap.newKeySet(); // All expressions e s.t. e >= this
+    protected final ConcurrentHashMap<SymbolicExpression, Integer> thisLessThan = new ConcurrentHashMap<>();
     protected final Set<SymbolicAtom> atoms = new HashSet<>();
 
     protected abstract Map<SymbolicExpression, Integer> getValue();
@@ -217,15 +441,7 @@ public abstract class SymbolicExpression extends Value {
                 final SymbolicExpression symOther = (SymbolicExpression) other;
                 if (this.equals(other)) {
                     return 0;
-                // }
-                // if (((BoolValue)SymbolicExpression.lessThanEqual(this, symOther)).val) {
-                //     // this is less
-                //     return -1;
-                // } else if (((BoolValue)SymbolicExpression.lessThanEqual(symOther, this)).val) {
-                //     // other is less
-                //     return 1;
                 } else {
-                    // unknown
                     return Long.compare(this.getZeroFingerprint(), symOther.getZeroFingerprint());
                 }
             } else {
@@ -336,30 +552,14 @@ public abstract class SymbolicExpression extends Value {
         }
     }
 
-    // TODO: does this need to be synchronized?
-    // We override fingerPrint rather than hashCode for TLC values
+    protected abstract void setup();
+
     protected long getZeroFingerprint() {
         if (!this.zeroFingerprintSet) {
             this.zeroFingerprintCache = this.getFullFingerprint(FP64.Zero);
             this.zeroFingerprintSet = true;
         }
         return this.zeroFingerprintCache;
-    }
-
-    protected void setLessThan(final SymbolicExpression greater) {
-        this.ge.add(greater);
-    }
-
-    protected void setGreaterThan(final SymbolicExpression less) {
-        this.le.add(less);
-    }
-
-    protected Set<SymbolicExpression> getAllLE() {
-        return this.le;
-    }
-
-    protected Set<SymbolicExpression> getAllGE() {
-        return this.ge;
     }
 
     protected abstract long getFullFingerprint(long fp);

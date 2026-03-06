@@ -19,6 +19,11 @@ public class SymbolicEmpty extends SymbolicExpression {
     }
 
     @Override
+    protected void setup() {
+        // Do nothing
+    }
+
+    @Override
     protected boolean isEmptyExpr() {return true;}
 
     @Override

@@ -30,27 +30,11 @@ public class SymbolicMax extends SymbolicExpression {
         }
     } 
 
-    // setup a new symbolic max for le
-    private void setup() {
+    @Override
+    protected void setup() {
         try {
             this.atoms.addAll(this.v1.atoms);
             this.atoms.addAll(this.v2.atoms);
-            final Set<SymbolicExpression> le = this.getAllLE();
-            final Set<SymbolicExpression> ge = this.getAllGE();
-            le.add(SymbolicEmpty.getInstance());
-            SymbolicEmpty.getInstance().setLessThan(this);
-            le.add(this);
-            ge.add(this);
-            for (final SymbolicExpression e : SymbolicExpression.getAll()) {
-                if (v1.getAllLE().contains(e) || v2.getAllLE().contains(e)) {
-                    le.add(e);
-                    e.setLessThan(this);
-                }
-                if (v1.getAllGE().contains(e) && v2.getAllGE().contains(e)) {
-                    ge.add(e);
-                    e.setGreaterThan(this);
-                }
-            }
             SymbolicExpression.addExpression(this);
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
