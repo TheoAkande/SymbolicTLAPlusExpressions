@@ -115,7 +115,7 @@ public class SymbolicSum extends SymbolicExpression {
             for (final SymbolicExpression e : this.bag.keySet()) {
                 this.atoms.addAll(e.atoms);
             }
-            SymbolicExpression.addExpression(this); // TODO: Check that this doesn't cause recursive failures
+            SymbolicExpression.addExpression(this);
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
             else {throw e;}

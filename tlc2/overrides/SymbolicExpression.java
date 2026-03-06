@@ -19,7 +19,7 @@ import util.Assert;
 
 /* 
     TODO: 
-    - Correct tla+ spec for symbolic expressions
+    - Fix the hanging
 */ 
 
 public abstract class SymbolicExpression extends Value {
@@ -148,10 +148,10 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s1 = (SymbolicExpression) e1;
         final SymbolicExpression s2 = (SymbolicExpression) e2;
 
-        if (SymbolicExpression.le(s1, s2) == TRUE) {
+        if (le(s1, s2) == TRUE) {
             return s2;
         }
-        if (SymbolicExpression.le(s2, s1) == TRUE) {
+        if (le(s2, s1) == TRUE) {
             return s1;
         }
 
@@ -184,7 +184,8 @@ public abstract class SymbolicExpression extends Value {
 
     protected static void addExpression(final SymbolicExpression e) {
         canonicalMap.put(e, e);
-        for (final SymbolicExpression o : canonicalMap.keySet()) {
+        final Set<SymbolicExpression> existingKeys = new HashSet<>(canonicalMap.keySet());
+        for (final SymbolicExpression o : existingKeys) {
             if (o != e) compareExprs(e, o);
         }
     }
@@ -201,10 +202,14 @@ public abstract class SymbolicExpression extends Value {
         if (e1.equals(e2)) {
             return TRUE;
         }
-
-        compareExprs(e1, e2);
-        
-        return e1.thisLessThan.get(e2);
+        acquireGenerationLock();
+        try{
+            compareExprs(e1, e2);
+            
+            return e1.thisLessThan.get(e2);
+        } finally {
+            releaseGenerationLock();
+        }
     }
 
     private static void compareAtomSum(final SymbolicAtom a, final SymbolicSum s) {
@@ -235,6 +240,7 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicSum sum2 = apart[2];
 
         if (apart[0].getCardinality() > 0) {
+            compareExprs(sum1, sum2);
             s1.thisLessThan.put(s2, sum1.thisLessThan.get(sum2));
             s2.thisLessThan.put(s1, sum2.thisLessThan.get(sum1));
             return;
@@ -354,7 +360,7 @@ public abstract class SymbolicExpression extends Value {
         m2.thisLessThan.put(m1, UNKNOWN);
     }
 
-    private static synchronized void compareExprs(final SymbolicExpression e1, final SymbolicExpression e2) {
+    private static void compareExprs(final SymbolicExpression e1, final SymbolicExpression e2) {
         if (e1.thisLessThan.contains(e2)) {
             return;
         }
@@ -366,7 +372,7 @@ public abstract class SymbolicExpression extends Value {
         }
 
         if (e1.isEmptyExpr()) {
-            e1.thisLessThan.put(e2, TRUE);
+            e1.thisLessThan.put(e2, e2.isEmptyExpr() ? FALSE : TRUE);
             e2.thisLessThan.put(e1, FALSE);
             return;
         }
