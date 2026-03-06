@@ -19,7 +19,7 @@ import util.Assert;
 
 /* 
     TODO: 
-    - 
+    - improve synchronization (r/w lock rather than just reentrant?)
 */ 
 
 public abstract class SymbolicExpression extends Value {
