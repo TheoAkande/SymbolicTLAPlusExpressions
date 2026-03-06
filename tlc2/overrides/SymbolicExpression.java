@@ -48,6 +48,8 @@ public abstract class SymbolicExpression extends Value {
         final SymbolicExpression s1 = (SymbolicExpression) e1;
         final SymbolicExpression s2 = (SymbolicExpression) e2;
 
+        // System.out.println(e1.toString() + " = " + e2.toString());
+        // System.out.println(e1.equals(e2));
         return s1.equals(s2) ? BoolValue.ValTrue : BoolValue.ValFalse;
     }
 
@@ -155,6 +157,11 @@ public abstract class SymbolicExpression extends Value {
             return s1;
         }
 
+        // System.out.println("Max of ");
+        // System.out.println(s1);
+        // System.out.println(s2);
+        // System.out.println("----");
+
         if (s1.isSumExpr() && s2.isSumExpr()) {
             final SymbolicSum[] split = SymbolicSum.split((SymbolicSum)s1, (SymbolicSum)s2);
             final SymbolicMax m = SymbolicMax.generate(split[1].extract(), split[2].extract());
@@ -170,9 +177,9 @@ public abstract class SymbolicExpression extends Value {
     protected static final Set<SymbolicExpression> emptySet = new HashSet<>();
     protected static final ConcurrentHashMap<SymbolicExpression, SymbolicExpression> canonicalMap = new ConcurrentHashMap<>();
     private static final ReentrantLock generationLock = new ReentrantLock();
-    private static final int TRUE = 1;
-    private static final int FALSE = 0;
-    private static final int UNKNOWN = -1;
+    protected static final int TRUE = 1;
+    protected static final int FALSE = 0;
+    protected static final int UNKNOWN = -1;
 
     protected static void acquireGenerationLock() {
         generationLock.lock();
@@ -320,37 +327,47 @@ public abstract class SymbolicExpression extends Value {
 
     private static void compareSumMax(final SymbolicSum s, final SymbolicMax m) {
         // s < m
-        if (le(s, m.first()) == TRUE || le(s, m.second()) == TRUE) {
-            s.thisLessThan.put(m, TRUE);
-            m.thisLessThan.put(s, FALSE);
-            return;
+        for (final SymbolicExpression e : m.vs) {
+            if (le(s, e) == TRUE) {
+                s.thisLessThan.put(m, TRUE);
+                m.thisLessThan.put(s, FALSE);
+                return;
+            }
         }
         // m < s
-        if (le(m.first(), s) == TRUE && le(m.second(), s) == TRUE) {
-            s.thisLessThan.put(m, FALSE);
-            m.thisLessThan.put(s, TRUE);
-            return;
+        for (final SymbolicExpression e : m.vs) {
+            if (le(e, s) != TRUE) {
+                s.thisLessThan.put(m, UNKNOWN);
+                m.thisLessThan.put(s, UNKNOWN);
+                return;
+            }
         }
+        s.thisLessThan.put(m, FALSE);
+        m.thisLessThan.put(s, TRUE);
+    }
 
-        s.thisLessThan.put(m, UNKNOWN);
-        m.thisLessThan.put(s, UNKNOWN);
+    private static boolean compareMMHelp(final SymbolicMax m1, final SymbolicMax m2) {
+        for (final SymbolicExpression e1 : m1.vs) {
+            boolean foundLess = false;
+            for (final SymbolicExpression e2 : m2.vs) {
+                foundLess |= le(e1, e2) == TRUE;
+            }
+            if (!foundLess) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void compareMaxMax(final SymbolicMax m1, final SymbolicMax m2) {
         // m1 < m2
-        if (
-            (le(m1.first(), m2.first()) == TRUE || le(m1.first(), m2.second()) == TRUE) &&
-            (le(m1.second(), m2.first()) == TRUE || le(m1.second(), m2.second()) == TRUE)
-        ) {
+        if (compareMMHelp(m1, m2)) {
             m1.thisLessThan.put(m2, TRUE);
             m2.thisLessThan.put(m1, FALSE);
             return;
         }
         // m2 < m1
-        if (
-            (le(m2.first(), m1.first()) == TRUE || le(m2.first(), m1.second()) == TRUE) &&
-            (le(m2.second(), m1.first()) == TRUE || le(m2.second(), m1.second()) == TRUE)
-        ) {
+        if (compareMMHelp(m2, m1)) {
             m1.thisLessThan.put(m2, FALSE);
             m2.thisLessThan.put(m1, TRUE);
             return;

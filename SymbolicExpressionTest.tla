@@ -60,7 +60,7 @@ ASSUME Commutativity
 
 Associativity == \A x \in Expressions : \A y \in Expressions : \A z \in Expressions :
     /\ Equal(Add(Add(x, y), z), Add(x, Add(y, z)))
-    \* /\ Equal(Max(Max(x, y), z), Max(x, Max(y, z)))   \* TODO: This doesn't hold; should it
+    /\ Equal(Max(Max(x, y), z), Max(x, Max(y, z)))
 ASSUME Associativity
 
 Idempotency == \A x \in Expressions :

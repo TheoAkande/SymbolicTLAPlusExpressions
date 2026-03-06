@@ -76,8 +76,9 @@ public class SymbolicSum extends SymbolicExpression {
             assert e.getKey().isMaxExpr(); // It has to be a max expression
             final Set<SymbolicSum> newFlat = new HashSet<>();
             for (final SymbolicSum s : flat) {
-                newFlat.add(SymbolicSum.combine(s, ((SymbolicMax) e.getKey()).first(), e.getValue()));
-                newFlat.add(SymbolicSum.combine(s, ((SymbolicMax) e.getKey()).second(), e.getValue()));
+                for (final SymbolicExpression me : ((SymbolicMax) e.getKey()).vs) {
+                    newFlat.add(SymbolicSum.combine(s, me, e.getValue()));
+                }
             }
             flat = newFlat;
         }

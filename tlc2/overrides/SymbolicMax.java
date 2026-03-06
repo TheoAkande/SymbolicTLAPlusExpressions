@@ -1,8 +1,12 @@
 package tlc2.overrides;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
@@ -12,10 +16,24 @@ import util.Assert;
 
 public class SymbolicMax extends SymbolicExpression {
 
-    private final SymbolicExpression v1;
-    private final SymbolicExpression v2;
+    protected final Set<SymbolicExpression> vs = new HashSet<>();
+    private final List<SymbolicExpression> orderedVs = new ArrayList<>();
 
     public static SymbolicMax generate(final IValue v1, final IValue v2) {
+        final SymbolicExpression s1 = (SymbolicExpression) v1;
+        final SymbolicExpression s2 = (SymbolicExpression) v2;
+
+        if (s1.isMaxExpr() && s2.isMaxExpr()) {
+            SymbolicMax newMax = (SymbolicMax) s1;
+            for (final SymbolicExpression e : ((SymbolicMax) s2).vs) {
+                newMax = newMax.with(e);
+            }
+            return newMax;
+        } else if (s1.isMaxExpr()) {
+            return ((SymbolicMax) s1).with(s2);
+        } else if (s2.isMaxExpr()) {
+            return ((SymbolicMax) s2).with(s1);
+        }
         final SymbolicMax newMax = new SymbolicMax(v1, v2);
         try {
             SymbolicExpression.acquireGenerationLock();
@@ -28,13 +46,54 @@ public class SymbolicMax extends SymbolicExpression {
         } finally {
             SymbolicExpression.releaseGenerationLock();
         }
-    } 
+    }
+
+    protected SymbolicMax with(final SymbolicExpression n) {
+        if (this.vs.contains(n)) {
+            return this;
+        }
+        final Set<SymbolicExpression> newVs = new HashSet<>();
+        for (final SymbolicExpression e : this.vs) {
+            if (SymbolicExpression.le(n, e) == UNKNOWN) { // We know that n is not < e, but it might be > e
+                newVs.add(e);
+            }
+        }
+        newVs.add(n);
+        final SymbolicMax other = new SymbolicMax();
+        other.vs.addAll(newVs);
+        final long nfp = n.getZeroFingerprint();
+        boolean inserted = false;
+        for (final SymbolicExpression e : this.orderedVs) {
+            if (!inserted && nfp < e.getZeroFingerprint()) {
+                other.orderedVs.add(n);
+                inserted = true;
+            }
+            if (newVs.contains(e)) {
+                other.orderedVs.add(e);
+            }
+        }
+        if (!inserted) {
+            other.orderedVs.add(n);
+        }
+        try {
+            SymbolicExpression.acquireGenerationLock();
+            final SymbolicExpression oldMax = SymbolicExpression.get(other);
+            if (oldMax != null) {
+                return (SymbolicMax) oldMax;
+            }
+            other.setup();
+            return other;
+        } finally {
+            SymbolicExpression.releaseGenerationLock();
+        }
+    }
 
     @Override
     protected void setup() {
         try {
-            this.atoms.addAll(this.v1.atoms);
-            this.atoms.addAll(this.v2.atoms);
+            for (final SymbolicExpression e : this.vs) {
+                this.atoms.addAll(e.atoms);
+            }
             SymbolicExpression.addExpression(this);
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
@@ -42,21 +101,28 @@ public class SymbolicMax extends SymbolicExpression {
         }
     }
 
+    private SymbolicMax() {}
+
     private SymbolicMax(final IValue v1, final IValue v2) {
         try {
             if (v1 instanceof SymbolicExpression && v2 instanceof SymbolicExpression) {
                 final long f1 = v1.fingerPrint(FP64.Zero);
                 final long f2 = v2.fingerPrint(FP64.Zero);
-                this.v1 = (SymbolicExpression) (f1 < f2 ? v1 : v2);
-                this.v2 = (SymbolicExpression) (f1 < f2 ? v2 : v1);
+                this.vs.add((SymbolicExpression) v1);
+                this.vs.add((SymbolicExpression) v2);
+                if (f1 < f2) {
+                    this.orderedVs.add((SymbolicExpression) v1);
+                    this.orderedVs.add((SymbolicExpression) v2);
+                } else {
+                    this.orderedVs.add((SymbolicExpression) v2);
+                    this.orderedVs.add((SymbolicExpression) v1);
+                }
             } else {
                 Assert.fail(
                     "Attempted to construct symbolic max with at least one non-symbolic expression " + Values.ppr(v1.toString())
                     + " or " + Values.ppr(v2.toString()),
                     getSource()
                 );
-                this.v1 = SymbolicEmpty.getInstance();
-                this.v2 = SymbolicEmpty.getInstance();
             }
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
@@ -76,9 +142,7 @@ public class SymbolicMax extends SymbolicExpression {
     public StringBuffer toString(StringBuffer sb, int offset, boolean swallow) {
         try {
             sb.append("Max(");
-            v1.toString(sb, offset, swallow);
-            sb.append(", ");
-            v2.toString(sb, offset, swallow);
+            sb.append(this.orderedVs.stream().map(Object::toString).collect(Collectors.joining(", ")));
             return sb.append(")");
         } catch (final RuntimeException | OutOfMemoryError e) {
             if (hasSource()) {throw FingerprintException.getNewHead(this, e);}
@@ -103,7 +167,15 @@ public class SymbolicMax extends SymbolicExpression {
         try {
             if (other instanceof SymbolicMax) {
                 final SymbolicMax maxOther = (SymbolicMax) other;
-                return maxOther.v1.equals(this.v1) && maxOther.v2.equals(this.v2);
+                if (this.orderedVs.size() != maxOther.orderedVs.size()) {
+                    return false;
+                }
+                for (int i = 0; i < this.orderedVs.size(); i++) {
+                    if (!this.orderedVs.get(i).equals(maxOther.orderedVs.get(i))) {
+                        return false;
+                    }
+                }
+                return true;
             }
             return false;
         } catch (final RuntimeException | OutOfMemoryError e) {
@@ -115,15 +187,9 @@ public class SymbolicMax extends SymbolicExpression {
     @Override
     protected long getFullFingerprint(long fp) {
         fp = FP64.Extend(fp, "MAX");
-        fp = FP64.Extend(fp, v1.fingerPrint(FP64.Zero));
-        return FP64.Extend(fp, v2.fingerPrint(FP64.Zero));
-    }
-
-    public SymbolicExpression first() {
-        return v1;
-    }
-
-    public SymbolicExpression second() {
-        return v2;
+        for (final SymbolicExpression e : this.orderedVs) {
+            fp = FP64.Extend(fp, e.fingerPrint(FP64.Zero));
+        }
+        return fp;
     }
 }

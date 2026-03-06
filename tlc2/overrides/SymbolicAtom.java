@@ -2,7 +2,6 @@ package tlc2.overrides;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import tlc2.tool.FingerprintException;
 import tlc2.util.FP64;
