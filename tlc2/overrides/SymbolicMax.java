@@ -35,11 +35,14 @@ public class SymbolicMax extends SymbolicExpression {
             return ((SymbolicMax) s2).with(s1);
         }
         final SymbolicMax newMax = new SymbolicMax(v1, v2);
+        final SymbolicExpression oldMax = SymbolicExpression.get(newMax);
+        if (oldMax != null) {
+            return (SymbolicMax) oldMax;
+        }
         try {
             SymbolicExpression.acquireGenerationLock();
-            final SymbolicExpression oldMax = SymbolicExpression.get(newMax);
-            if (oldMax != null) {
-                return (SymbolicMax) oldMax;
+            if (SymbolicExpression.get(newMax) != null) {
+                return (SymbolicMax) SymbolicExpression.get(newMax);
             }
             newMax.setup();
             return newMax;
@@ -75,11 +78,14 @@ public class SymbolicMax extends SymbolicExpression {
         if (!inserted) {
             other.orderedVs.add(n);
         }
+        final SymbolicExpression oldMax = SymbolicExpression.get(other);
+        if (oldMax != null) {
+            return (SymbolicMax) oldMax;
+        }
         try {
             SymbolicExpression.acquireGenerationLock();
-            final SymbolicExpression oldMax = SymbolicExpression.get(other);
-            if (oldMax != null) {
-                return (SymbolicMax) oldMax;
+            if (SymbolicExpression.get(other) != null) {
+                return (SymbolicMax) SymbolicExpression.get(other);
             }
             other.setup();
             return other;

@@ -18,11 +18,14 @@ public class SymbolicAtom extends SymbolicExpression {
 
     public static SymbolicAtom generate(final Value val) {
         final SymbolicAtom newAtom = new SymbolicAtom(val);
+        final SymbolicExpression oldAtom = SymbolicExpression.get(newAtom);
+        if (oldAtom != null) {
+            return (SymbolicAtom) oldAtom;
+        }
         try {
             SymbolicExpression.acquireGenerationLock();
-            final SymbolicExpression oldAtom = SymbolicExpression.get(newAtom);
-            if (oldAtom != null) {
-                return (SymbolicAtom) oldAtom;
+            if (SymbolicExpression.get(newAtom) != null) {
+                return (SymbolicAtom) SymbolicExpression.get(newAtom);
             }
             newAtom.setup();
             return newAtom;

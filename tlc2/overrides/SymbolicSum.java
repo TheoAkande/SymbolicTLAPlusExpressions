@@ -97,11 +97,14 @@ public class SymbolicSum extends SymbolicExpression {
     // Note: addTo is generally better to use (hence private)
     protected static SymbolicSum generate(final Map<SymbolicExpression, Integer> bag) {
         final SymbolicSum newSum = new SymbolicSum(bag);
+        final SymbolicExpression oldSum = SymbolicExpression.get(newSum);
+        if (oldSum != null) {
+            return (SymbolicSum) oldSum;
+        }
         try {
             SymbolicExpression.acquireGenerationLock();
-            final SymbolicExpression oldSum = SymbolicExpression.get(newSum);
-            if (oldSum != null) {
-                return (SymbolicSum) oldSum;
+            if (SymbolicExpression.get(newSum) != null) {
+                return (SymbolicSum) SymbolicExpression.get(newSum);
             }
             newSum.setup();
             return newSum;

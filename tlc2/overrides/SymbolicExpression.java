@@ -19,7 +19,6 @@ import util.Assert;
 
 /* 
     TODO: 
-    - improve synchronization (r/w lock rather than just reentrant?)
 */ 
 
 public abstract class SymbolicExpression extends Value {
@@ -200,14 +199,8 @@ public abstract class SymbolicExpression extends Value {
         if (e1.equals(e2)) {
             return TRUE;
         }
-        acquireGenerationLock();
-        try{
-            compareExprs(e1, e2);
-            
-            return e1.thisLessThan.get(e2);
-        } finally {
-            releaseGenerationLock();
-        }
+        compareExprs(e1, e2);
+        return e1.thisLessThan.get(e2);
     }
 
     private static void compareAtomSum(final SymbolicAtom a, final SymbolicSum s) {
