@@ -8,7 +8,8 @@
 
     The public API of operators/definitions exposed by this module are as follows:
     - EMPTY
-    - Expr(_)     : String      -> Expr
+    - Expr(_)     : Str         -> Expr
+    - ExprN(_, _) : Str  x Int  -> Expr
     - Equal(_, _) : Expr x Expr -> Bool
     - LE(_, _)    : Expr x Expr -> Bool
     - Mult(_, _)  : Expr x Expr -> Expr
@@ -30,6 +31,8 @@ LOCAL ExprToBag(a) ==
 
 (* String to Expression *)
 Expr(a) == [type |-> "atom", val |-> a]
+(* String and Int to Expression *)
+ExprN(a, n) == Expr(a \o "-" \o ToString(n))
 
 LOCAL Sum(expr) == [type |-> "sum", val |-> expr]
 
